@@ -6,10 +6,9 @@ date: 2026-11-15
 
 *Part 6 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
-Lightning Tables are documented to update within 100 ms of data arriving in a topic.
-That is the serving layer.
-What an application cares about is end to end: a source change, through Flink, to a read of the derived state.
-So I measured that.
+According to the docs, Lightning Tables update within 100 ms of data arriving in a topic.
+That number covers only the serving layer.
+An application cares about the whole path, from a source change through Flink to a read of the derived state, so that's what I measured.
 
 ## Setup
 
@@ -23,35 +22,32 @@ So I measured that.
 | Network | 190 to 210 ms TCP connect to the MCP host, measured before and after every run |
 
 Every latency below includes that trans-Pacific round trip.
-Percentiles are nearest-rank, so each one is a value that was actually observed.
+The percentiles are nearest-rank, so each one is a value I actually observed.
 
 ## Freshness: method
 
-For each sample, the client writes a flight update with a unique `estimated_time` through the Kafka producer (`acks=all`) and records the broker's acknowledgement time.
-It then polls `queryData` for the probe passenger's `INBOUND_ARRIVAL` until the new value appears.
+For each sample, the client writes a flight update with a unique `estimated_time` through the Kafka producer (`acks=all`) and records when the broker acknowledged it.
+Then it polls `queryData` for the probe passenger's `INBOUND_ARRIVAL` until the new value shows up.
 
-Each sample records two bounds:
-
-- **not visible before**: the start of the last poll that did not see the value.
-- **visible by**: the end of the first poll that did.
-
-The true visibility time lies between them.
-The gap, 1.6 to 2.9 s with a median of 1.8 s, is the resolution: one MCP query takes about 0.8 s from Seoul.
+Each sample records two times.
+"Not visible before" is the start of the last poll that missed the value, and "visible by" is the end of the first poll that saw it.
+The real visibility time is somewhere in between.
+The gap between the two was 1.6 to 2.9 s, median 1.8 s, which is the measurement's resolution; one MCP query takes about 0.8 s from Seoul.
 
 ## Freshness: the first run was wrong
 
 The first run of 30 samples reported a median of 55.9 s and a maximum of 59.7 s.
-But the first sample alone was 17.4 s, and the other 29 all sat between 52.5 and 59.7 s.
+The first sample on its own was 17.4 s, though, and the other 29 all fell between 52.5 and 59.7 s.
 
 The visibility times gave it away: 08:02:58, 08:03:59, 08:05:01, and so on, one every 61 to 62 seconds.
-The runner wrote each new sample 5 seconds after seeing the previous one.
-Seeing a change means a Flink commit just happened, so every write landed just after a commit and waited almost a full interval.
-The benchmark had phase-locked to the system it was measuring.
+My runner wrote each new sample 5 seconds after it saw the previous one.
+A change only becomes visible right after a Flink commit, so every write landed just after a commit and waited almost a full interval for the next one.
+I had built a benchmark that synchronized itself with the system it was measuring.
 
-That run is not a freshness distribution.
-It does show two real things: derived state reaches Lightning in discrete steps about 61 seconds apart, and the worst case, a write that just misses a commit, is about 56 to 60 seconds.
+That run doesn't describe freshness, but it does show two things.
+Derived state reaches Lightning in steps about 61 seconds apart, and a write that just misses a commit takes about 56 to 60 seconds to show up.
 
-The fix is to spread writes uniformly across the interval: wait the 5 seconds plus a seeded random 0 to 60 seconds between samples.
+To fix it, I spread the writes across the interval: 5 seconds plus a seeded random 0 to 60 seconds between samples.
 
 ## Freshness: the result
 
@@ -63,19 +59,19 @@ With jitter, 30 samples, from broker acknowledgement to visible in Lightning:
 
 All 30 values, sorted: 17.8, 19.1, 20.6, 21.1, 23.9, 25.0, 30.0, 30.6, 32.6, 34.3, 36.1, 37.3, 38.8, 42.3, 46.1, 46.6, 47.4, 47.8, 48.6, 50.0, 50.2, 51.4, 52.4, 53.5, 53.7, 57.5, 59.5, 64.6, 66.9, 67.6.
 
-They spread over about 50 seconds, as uniform write times across a 61-second interval should.
-The smallest value was about 17 to 18 seconds in both runs.
-So the data fit a simple model:
+They spread over about 50 seconds, which is what you'd expect from write times spread across a 61-second interval.
+The smallest value was 17 to 18 seconds in both runs, so the data fit a simple model:
 
 > freshness ≈ about 17 s fixed + the wait for the next commit, between 0 and about 61 s
 
-That was an interpretation, so I measured the stages directly.
+That was still a guess, so I measured the stages directly.
 
 ## Where the time goes
 
-A second run repeated the same method with two Kafka consumers watching the materialized table's output topic on background threads.
-One reads with `isolation.level=read_uncommitted` and sees Flink's write the moment it lands; the other reads `read_committed` and sees it only once Flink's transaction commits.
-So each write is observed three times: written, committed, and served by Lightning.
+The second run used the same method plus two Kafka consumers on background threads, both reading the materialized table's output topic.
+One reads with `isolation.level=read_uncommitted` and sees Flink's write as soon as it lands.
+The other reads `read_committed` and sees it only after Flink's transaction commits.
+That way each write is observed three times: when Flink writes it, when it's committed, and when Lightning serves it.
 
 30 samples, no errors, seconds after the broker acknowledged the source write:
 
@@ -85,28 +81,33 @@ So each write is observed three times: written, committed, and served by Lightni
 | Output committed | 11.3 | 38.5 | 61.1 | 61.8 | 36.7 |
 | Visible in Lightning | 17.5 | 44.3 | 66.9 | 68.2 | 42.8 |
 
-And the hops between them, per sample:
+And the gaps between them, per sample:
 
 | Hop | min | p50 | max |
 |---|---|---|---|
 | Written to committed | 7.1 | 36.9 | 57.5 |
 | Committed to visible in Lightning | 3.2 to 5.0 | 4.4 to 6.1 | 5.3 to 7.1 |
 
-The Lightning hop is shown as a range: the first number is when a query that started after the commit still missed the row, the second when a query first returned it.
+The Lightning hop is a range.
+The first number is when a query that started after the commit still missed the row, and the second is when a query first returned it.
 
-Three things fall out:
+Flink's write step matches the 5-second sink flush.
+Output appeared 0 to 5 seconds after the input, 2.7 on average, which is what you get when arrivals land at random points in a 5-second buffer.
+Using the brokers' own timestamps, without my laptop's clock involved, the same step came out at 2.5 seconds at the median.
 
-- **Flink's write step is the 5-second sink flush.** Output appeared 0 to 5 seconds after the input, 2.7 on average, which is exactly what uniform arrivals into a 5-second buffer give.
-  Measured on the brokers' own timestamps, without my laptop's clock, the same step was 2.5 seconds at the median.
-- **The commit is where the time goes.** Committed output became visible 11 to 62 seconds after the write: Flink commits its Kafka transaction about once a minute, and every reader that only sees committed data, Lightning included, waits for it.
-- **Lightning added 3 to 7 seconds after the commit**, not 100 milliseconds.
-  The documented figure may well hold for plain, non-transactional topics; for a Flink materialized table's transactional output, measured from when the commit became visible, it was seconds.
+Most of the time is spent waiting for the commit.
+Committed output became visible 11 to 62 seconds after the write.
+Flink commits its Kafka transaction about once a minute, and any reader that only sees committed data has to wait for it, Lightning included.
 
-So E1's "fixed 17 seconds" is the fastest commit, about 11 seconds after the write, plus about 5 seconds of Lightning.
-The totals agreed across runs too: median 44.3 seconds here against 46.1 in the first measurement.
+After the commit, Lightning took another 3 to 7 seconds.
+The documented 100 ms may hold for plain topics that aren't written transactionally.
+For a Flink materialized table's output, measured from the moment the commit became visible, it took seconds.
 
-**In practice:** on this setup, a source change shows up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average, and almost all of it is waiting for Flink to commit.
-If you need fresher derived state, the commit interval is the setting to look for, not Lightning.
+So E1's "fixed 17 seconds" is the fastest commit, about 11 seconds after the write, plus about 5 seconds in Lightning.
+The two runs also agree on the total: a median of 44.3 seconds here and 46.1 in the first measurement.
+
+On this setup, then, a source change shows up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average, and nearly all of that is the wait for Flink to commit.
+If you need fresher derived state, look at Flink's commit interval first.
 
 ## Query latency by shape
 
@@ -131,38 +132,37 @@ SELECT PASSENGER_ID FROM bench_passenger_state
 WHERE CONNECTION_MINUTES BETWEEN 45 AND 90 LIMIT 200
 ```
 
-No errors.
-The shapes are indistinguishable at the median, so at 10,000 rows the per-call overhead dominates, not the query.
-Taking out one 190 ms round trip leaves about 500 ms per call that this run cannot split between the MCP layer and the Lightning engine.
+None of the queries failed.
+The three shapes have the same median, so at 10,000 rows the cost of each call outweighs anything about the query itself.
+Without the 190 ms round trip there's still about 500 ms per call, and this run can't tell how much of that is the MCP layer and how much is the Lightning engine.
 The slowest point lookup was the first call of the run.
 
 ### What the queries scanned
 
-After the experiments, the console's Lightning Tables page showed how much data queries had scanned per table:
+After the experiments, the console's Lightning Tables page showed how much data the queries had scanned on each table:
 
 [![Lightning Tables page: bench_passenger_state shows 7.96 GB scanned](assets/lightning-tables-scanned-bytes.png)](assets/lightning-tables-scanned-bytes.png)
 
 *Confluent Cloud console, 2026-11-15, after E1, E3, and E4.*
 
 My recorded runs sent about 5,830 queries to `bench_passenger_state`: 2,952 E1 polls, 300 E3 queries, and 2,578 E4 lookups.
-7.96 GB over 5,830 queries is about 1.4 MB per query, for a 10,000-row table, and most of those queries were single-row lookups by primary key.
-That is consistent with each query reading most or all of the table rather than going straight to one key.
-I cannot confirm it from these numbers alone: the page shows the table's size as 0 B, so there is nothing to compare against.
+Dividing 7.96 GB by 5,830 gives about 1.4 MB per query on a 10,000-row table, and most of those queries were single-row lookups by primary key.
+That fits each query reading most or all of the table instead of going straight to one key.
+I can't confirm it from these numbers, because the page lists the table's size as 0 B and there's nothing to compare against.
 
-It matters for cost.
-Lightning compute is billed in CCUs, and one CCU covers up to 80 GB scanned per hour, whichever meter is highest.
-At this size the scans were cheap: about 8 GB across an hour of experiments.
-But if scanned bytes grow with table size, the E4 rate of 40 lookups per second on a table ten times larger would scan on the order of 2 TB an hour.
-That is a hypothesis to measure at 100,000 rows, not a result.
+If it's true, it affects cost.
+Lightning compute is billed in CCUs, and one CCU covers up to 80 GB scanned per hour (you pay for whichever meter is highest).
+At this size the scans were cheap, about 8 GB over an hour of experiments.
+If scanned bytes grow with table size, though, the E4 rate of 40 lookups per second on a table ten times larger would scan around 2 TB an hour.
+I haven't measured that; it's the next test, at 100,000 rows.
 
 ### What Lightning SQL allows
 
-Lightning's SQL is deliberately narrow: filters (`=`, `IN`, `LIKE`, `BETWEEN`, null checks), `ORDER BY`, and `LIMIT`, at most 200 rows over MCP, and no aggregates, `GROUP BY`, or joins.
-Joins and aggregation belong in Flink, upstream of the Lightning Table.
+Lightning's SQL supports filters (`=`, `IN`, `LIKE`, `BETWEEN`, null checks), `ORDER BY`, and `LIMIT`, returns at most 200 rows over MCP, and rejects aggregates, `GROUP BY`, and joins, so joins and aggregation belong in Flink, upstream of the Lightning Table.
 
 ## Throughput under concurrency
 
-Closed loop: N workers, each with its own MCP session, each sending the next point lookup as soon as the previous one returns, for 30 seconds per level.
+This is a closed loop: N workers, each with its own MCP session, each sending its next point lookup as soon as the previous one returns, for 30 seconds per level.
 
 | concurrency | requests | throughput | errors | p50 | p95 |
 |---|---|---|---|---|---|
@@ -173,16 +173,20 @@ Closed loop: N workers, each with its own MCP session, each sending the next poi
 | 16 | 698 | 23.3 req/s | 0 | 646 ms | 743 ms |
 | 32 | 1,219 | 40.6 req/s | 0 | 774 ms | 837 ms |
 
-Throughput grew linearly to 16 clients with flat latency.
-At 32 it reached 40.6 req/s instead of the roughly 46 linear scaling predicts, and the median rose by about 130 ms.
-No request failed and no rate-limit error appeared.
-All 32 workers shared one Python process on a laptop, so the knee may be the client; I would not attribute it to the service without running clients in several processes, or inside the region.
+Throughput grew linearly up to 16 clients and latency stayed flat.
+At 32 it reached 40.6 req/s, short of the roughly 46 that linear scaling would give, and the median went up by about 130 ms.
+No request failed and I saw no rate-limit errors.
+All 32 workers shared one Python process on a laptop, so the slowdown may be on my side; I'd want clients in several processes, or inside the region, before blaming the service.
 
 ## What I would do differently
 
-- **Measure from inside the region.** From Seoul, the round trip alone is more than a quarter of every query's latency (about 190 of 690 ms).
-- **Write the benchmark against the system's clock, not your own.** A fixed delay between samples looked harmless and quietly synchronized the benchmark with Flink's commits.
-  Randomized spacing is a one-line fix once you know to look for it.
-- **Record bounds, not points.** Reporting both "not visible before" and "visible by" made the measurement resolution explicit and the phase-locking obvious.
+I'd run the clients inside the region.
+From Seoul the round trip alone is more than a quarter of every query's latency (about 190 of 690 ms).
+
+I'd also be suspicious of any fixed delay in a benchmark.
+Mine looked harmless and lined the samples up with Flink's commits; random spacing fixed it in one line once I knew to look.
+
+And I'd keep recording both bounds for every sample.
+Having "not visible before" next to "visible by" showed the measurement's resolution and made the synchronization easy to spot.
 
 Next: [Is a Streamhouse worth it?](07-is-a-streamhouse-worth-it.md).

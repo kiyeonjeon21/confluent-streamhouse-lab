@@ -33,16 +33,18 @@ USING TOOLS river_air_live_context
 WITH ('max_iterations' = '10');
 ```
 
-- The **model** is managed: it runs inside Confluent Cloud, so it needs no endpoint or API key.
-  `SHOW MODELS` in `us-east-1` listed Claude Sonnet 4.6, Opus 4.6, 4.7 and 4.8, Haiku 4.5, three Amazon Nova models, and two others.
-- The **tool** is the Real-Time Context Engine's MCP server, restricted to `getMetadata` and `queryData`.
-- The **connection** carries the MCP endpoint and the context reader's Global API key.
-  It is the one object Terraform cannot create yet, so the lab uses `confluent flink connection create`.
+The model is managed, meaning it runs inside Confluent Cloud and needs no endpoint or API key.
+`SHOW MODELS` in `us-east-1` listed Claude Sonnet 4.6, Opus 4.6, 4.7 and 4.8, Haiku 4.5, three Amazon Nova models, and two others.
+
+The tool is the Real-Time Context Engine's MCP server, limited to `getMetadata` and `queryData`.
+
+The connection holds the MCP endpoint and the context reader's Global API key.
+Terraform can't create this kind of connection yet, so the lab uses `confluent flink connection create`.
 
 ## Feeding it
 
 `AI_RUN_AGENT` reads only append-only input, and `passenger_state` is an upsert table.
-So at-risk passengers are copied into an append-only `rebooking_requests` table, and the agent runs over that:
+So the lab copies at-risk passengers into an append-only `rebooking_requests` table and runs the agent over that:
 
 ```sql
 SELECT q.passenger_id, r.agent_status, r.response
@@ -70,28 +72,30 @@ P-002  SUCCESS
   OFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel
 ```
 
-This is exactly the quick start's expected answer.
+That's exactly the answer the quick start expects.
 The agent skipped RA214, which now leaves only 40 minutes after the delayed arrival.
-It added a hotel because RA232 leaves the next morning, and it skipped the sold-out Airport Bayfront Inn.
-All of that came from live Lightning reads, not from anything in the prompt.
+It added a hotel because RA232 leaves the next morning, and it passed over the sold-out Airport Bayfront Inn.
+The prompt contains no flight or hotel data, so the agent got all of this from live Lightning reads.
 
 ## Notes from running it
 
-- **The model did not reply with exactly one line**, in either run, despite the prompt.
-  It prefixed a sentence.
-  The quick start warns about this.
-  Anything that consumes the response should search for the `OFFER1=` line, not parse the field; the lab's test does that.
-- **One run for two passengers took 24 to 26 seconds** end to end, including the snapshot query start-up, model calls, and MCP calls.
-  The result does not report how many tool calls the agent made, so per-step timing needs another source.
-- **The agent's credential is broader than its tools.**
-  The MCP tools are read-only, but on a Basic cluster the context reader's key holds `CloudClusterAdmin` ([part 2](02-basic-clusters-and-read-only-agents.md)).
-- **The secret stays out of SQL history**, which is the point of creating the connection with the CLI, and `confluent flink connection describe` does not return it.
-  The CLI does take it as a command-line argument, so it is briefly visible in the local process list.
+The model didn't reply with exactly one line in either run, despite the prompt; it put a sentence in front.
+The quick start warns about this.
+Anything that consumes the response should look for the `OFFER1=` line instead of parsing the whole field, which is what the lab's test does.
 
-## Why this matters
+One run for two passengers took 24 to 26 seconds end to end, including snapshot query start-up, the model calls, and the MCP calls.
+The result doesn't say how many tool calls the agent made, so timing each step would need another source.
 
-The same Lightning Tables that the agent reads are open to any MCP client.
-Point Claude Code at the same endpoint and it sees the same passenger state the in-Flink agent saw.
-That is the Streamhouse argument in one sentence: one continuously maintained state, read by applications, analytics, and agents alike.
+The agent's tools are read-only, but its credential is broader.
+On a Basic cluster the context reader's key holds `CloudClusterAdmin` ([part 2](02-basic-clusters-and-read-only-agents.md)).
+
+Creating the connection with the CLI keeps the secret out of SQL history, and `confluent flink connection describe` doesn't return it.
+The CLI does take the secret as a command-line argument, so it shows up briefly in the local process list.
+
+## Other clients
+
+Any MCP client can read the Lightning Tables; the agent inside Flink is just one of them.
+Claude Code pointed at the same endpoint with the same key would read the same passenger state; I didn't run that comparison in this lab.
+That shared state is what a Streamhouse is for: applications and agents work from one continuously maintained table instead of their own copies.
 
 Next: [How fresh is "real time"?](06-how-fresh-is-real-time.md).

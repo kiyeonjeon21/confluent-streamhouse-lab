@@ -8,21 +8,19 @@ date: 2026-11-15
 
 ## What a Streamhouse is
 
-Confluent's Streamhouse is four managed layers on top of Kafka topics:
+Confluent builds a Streamhouse from four managed layers on top of Kafka topics.
+Kafka topics hold the events, with their schemas in Schema Registry.
+Flink SQL, mostly through materialized tables, turns those events into state that stays current.
+Lightning Tables serve a topic's latest state for fast reads, to applications through an API and to agents through the Real-Time Context Engine, which is an MCP server.
+Tableflow writes the same topics out as Iceberg tables, so history does not need a second pipeline.
 
-1. **Capture.** Kafka topics hold the events, with schemas in Schema Registry.
-2. **Maintain.** Flink SQL, and especially materialized tables, turn events into always-current state.
-3. **Serve now.** Lightning Tables answer low-latency reads over a topic's latest state, for applications through an API and for agents through the Real-Time Context Engine, an MCP server.
-4. **Serve history.** Tableflow writes the same topics to Iceberg tables, so history needs no second pipeline.
-
-The topic is the contract between the layers.
-Each layer reads what another layer wrote, so no component needs a copy of another's logic.
+Each layer reads topics that another layer wrote, so no component keeps its own copy of another component's logic.
 
 ## The scenario
 
 Confluent's quick start uses a fictional airline, River Air.
 Flight RA417 from Chicago is late into San Francisco.
-The system has to notice which connecting passengers are now at risk, let an AI agent offer each of them two new flights and, if needed, a hotel, and answer questions about past delays.
+The system has to work out which connecting passengers are now at risk, have an AI agent offer each of them two new flights and a hotel if they need one, and answer questions about past delays.
 
 ```mermaid
 flowchart LR
@@ -36,51 +34,55 @@ flowchart LR
   FH[flight_history] --> ICE[(Iceberg via Tableflow)]
 ```
 
-Here is what the console's Stream Lineage summary showed for the lab's cluster, for the last hour:
+This is the console's Stream Lineage summary for the lab's cluster over the last hour:
 
 [![Stream Lineage summary: producers, a group of four topics, an aggregated pair of Flink nodes looping back into the topics, and consumers](assets/stream-lineage-last-hour.png)](assets/stream-lineage-last-hour.png)
 
 *Confluent Cloud console, 2026-11-15, cluster overview, period "Last hour". Consumer IDs are hidden.*
 
-The summary groups nodes, and the badges count them.
-On the left are the two kinds of writers: `rdkafka`, the benchmark's data generator, and two Flink `INSERT` statements that replayed the RA417 events.
-In the middle are four topics.
-The `…` node's tooltip reads "flink · 2": two aggregated Flink nodes that read the topics and write back into them.
-The only Flink jobs in the lab that do both are the two materialized tables, so that is almost certainly what they are.
-On the right are consumers named as managed tasks of the environment; the summary does not say which service each belongs to.
+The summary groups nodes and puts the count in a badge.
+On the left are the writers: `rdkafka` is the benchmark's data generator, and the two Flink `INSERT` statements replayed the RA417 events.
+The four topics sit in the middle.
+The tooltip on the `…` node says "flink · 2", meaning two Flink nodes that read the topics and write back into them.
+In this lab only the two materialized tables do both, so I'm fairly sure that's what they are.
+The consumers on the right are named as managed tasks of the environment, and the summary doesn't say which service each one belongs to.
 
-Two practical notes: lineage only shows recent traffic, so I replayed a few events before taking this; and the full Stream Lineage page showed only its onboarding screen for this environment, which uses the Essentials governance package.
+Lineage only shows recent traffic, so I replayed a few events right before taking this.
+The full Stream Lineage page showed nothing but its onboarding screen for this environment, which is on the Essentials governance package.
 
 ## How the lab is built
 
 The quick start is a 30-minute walkthrough in the console.
-I wanted something I could tear down every evening and rebuild the next morning, with every step reviewable before it cost money.
+I wanted something I could tear down every evening and rebuild the next morning, where I could review every step before it cost money.
 
-- **Terraform** owns the infrastructure: one environment, one cluster, one Flink compute pool, two service accounts and their keys, the Lightning Tables, and the Tableflow table.
-  Lightning Tables and Tableflow sit behind variables, because they need topics that Flink creates first.
-- **SQL files** own the Flink objects, one statement per file, applied in order by a small CLI over the Flink statements API.
-  A header comment such as `-- lab:mode=snapshot` turns a file into a snapshot (batch) query.
-- **The Confluent CLI** is used only where neither works: Terraform has no `MCP_SERVER` connection type yet, so the agent's MCP connection is created with `confluent flink connection create`.
-- **Tests** come in two kinds.
-  About 120 offline unit tests check the SQL files, the clients, secret handling, and the benchmark tooling.
-  Six live tests, one per capability, assert the quick start's expected results against the real deployment, in about three minutes.
+Terraform owns the infrastructure: one environment, one cluster, one Flink compute pool, two service accounts with their keys, the Lightning Tables, and the Tableflow table.
+The Lightning Tables and Tableflow are switched on by variables, because they need topics that Flink creates first.
 
-Two choices differ from the quick start:
+The Flink objects live in SQL files, one statement per file, and a small CLI applies them in order through the Flink statements API.
+A header comment such as `-- lab:mode=snapshot` makes a file run as a snapshot (batch) query.
+
+I used the Confluent CLI in one place, where neither of those works.
+Terraform has no `MCP_SERVER` connection type yet, so the agent's MCP connection comes from `confluent flink connection create`.
+
+About 120 offline unit tests cover the SQL files, the clients, secret handling, and the benchmark tooling.
+Six live tests, one per capability, check the quick start's expected results against the real deployment and take about three minutes.
+
+I changed two things from the quick start:
 
 | Quick start | This lab | Why |
 |---|---|---|
 | Standard cluster | Basic cluster | Every feature used here runs on Basic, and Basic's first eCKU is free; Standard starts at $0.75 per eCKU-hour |
 | Global API key for your own user | Global API key for a dedicated service account, created by Terraform | Keeps the user's two Global key slots free and puts the key's lifecycle in code |
 
-The second choice turned out to be the most interesting problem of the project; see [part 2](02-basic-clusters-and-read-only-agents.md).
+The second change led to the most interesting problem of the project, which is the subject of [part 2](02-basic-clusters-and-read-only-agents.md).
 
 ## Verify the docs before trusting them
 
-A few things I checked instead of assuming, because they had already drifted:
+Some of what I read had already drifted, so I checked these instead of assuming:
 
-- The Lightning query API is at `query/v1`; the upstream quick start repository still calls `query/v1alpha1`.
-- The upstream repository says Terraform cannot create Global API keys; provider 2.95.0 can.
-- Enabling a Lightning Table and enabling the Real-Time Context Engine on a topic are the same API object, `rtce-topics`, which Terraform manages as `confluent_rtce_topic`.
+- The Lightning query API is at `query/v1`. The upstream quick start repository still calls `query/v1alpha1`.
+- The upstream repository says Terraform cannot create Global API keys. Provider 2.95.0 can.
+- Enabling a Lightning Table on a topic and enabling the Real-Time Context Engine on it create the same API object, `rtce-topics`, which Terraform manages as `confluent_rtce_topic`.
 
 ## What passed
 
@@ -97,15 +99,16 @@ All six capabilities matched the quick start, including the agent's output:
 
 ## What it costs
 
-The idle platform costs almost nothing: a Basic cluster with no traffic, a compute pool with no statements, and Schema Registry Essentials are not billed.
-The running parts are what cost money:
+An idle platform costs almost nothing.
+A Basic cluster with no traffic, a compute pool with no statements, and Schema Registry Essentials are not billed.
+You pay for what runs:
 
 - A materialized table is a continuous statement and uses at least one Flink CFU for as long as it exists.
-  At the $0.2562 per CFU-hour on an earlier invoice of mine (in Seoul; I have not checked the `us-east-1` rate), that is about $6 per day.
-- A Tableflow topic is billed per hour while enabled, even with no new data.
-- Lightning Tables bill storage always and compute only while data arrives or queries run.
-- The agent bills model inference per run.
+  An earlier invoice of mine charged $0.2562 per CFU-hour in Seoul (I haven't checked the `us-east-1` rate), which works out to about $6 a day.
+- A Tableflow topic is billed by the hour while it's enabled, even when no new data arrives.
+- Lightning Tables always bill for storage, and bill for compute only while data arrives or queries run.
+- The agent bills for model inference on each run.
 
-Because everything is in code, tearing the lab down between sessions is the cheapest way to run it.
+Since everything is in code, I tore the lab down between sessions, which is the cheapest way to run it.
 
 Next: [Basic clusters cannot hold a read-only agent](02-basic-clusters-and-read-only-agents.md).
