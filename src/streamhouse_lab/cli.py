@@ -49,13 +49,22 @@ def cmd_doctor(_: argparse.Namespace) -> int:
     report("gh authenticated", gh.returncode == 0)
 
     for var in ("CONFLUENT_CLOUD_API_KEY", "CONFLUENT_CLOUD_API_SECRET"):
-        report(f"{var} set for Terraform", bool(os.environ.get(var)), "see .env.example")
+        present = bool(os.environ.get(var))
+        report(f"{var} set for Terraform", present, "" if present else "see .env.example")
+
+    def owner_only(path: Path) -> None:
+        mode = path.stat().st_mode & 0o777
+        private = mode & 0o077 == 0
+        report(f"{path.name} is owner-only", private, "" if private else f"mode {mode:o}; run chmod 600")
+
+    env_file = config.REPO_ROOT / ".env"
+    if env_file.exists():
+        owner_only(env_file)
 
     state = config.TERRAFORM_DIR / "terraform.tfstate"
-    report("Terraform state present", state.exists(), "not deployed yet" if not state.exists() else "")
+    report("Terraform state present", state.exists(), "" if state.exists() else "not deployed yet")
     if state.exists():
-        mode = state.stat().st_mode & 0o777
-        report("Terraform state is owner-only (600)", mode & 0o077 == 0, f"mode {mode:o}; run chmod 600")
+        owner_only(state)
     return 0 if ok else 1
 
 
