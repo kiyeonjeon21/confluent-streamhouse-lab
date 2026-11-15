@@ -13,6 +13,8 @@ from __future__ import annotations
 import asyncio
 import random
 import re
+import threading
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Protocol
@@ -214,3 +216,218 @@ async def run_concurrency(
         if total and counts["error"] / total > stop_error_rate:
             recorder.event("stopped", reason=f"error rate above {stop_error_rate:.0%} at concurrency {level}")
             break
+
+
+# -- E2: where the freshness goes ----------------------------------------------
+
+
+class TopicWatcher:
+    """Polls a topic reader on a background thread and remembers when each marker first appeared.
+
+    `extract` turns a received record into a marker string, or None to ignore it.
+    """
+
+    def __init__(self, reader, extract: Callable[[object], str | None]) -> None:
+        self._reader = reader
+        self._extract = extract
+        self._seen: dict[str, tuple[int, int]] = {}
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self.error: BaseException | None = None
+
+    def _run(self) -> None:
+        try:
+            while not self._stop.is_set():
+                for record in self._reader.poll(0.05):
+                    marker = self._extract(record)
+                    if marker is not None:
+                        with self._lock:
+                            self._seen.setdefault(marker, (record.received_ns, record.timestamp_ms))
+        except BaseException as exc:  # surfaced to the runner, never swallowed
+            self.error = exc
+
+    def start(self) -> TopicWatcher:
+        self._thread.start()
+        return self
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=5)
+        self._reader.close()
+
+    def seen(self, marker: str) -> tuple[int, int] | None:
+        """(monotonic ns when first received, the record's broker timestamp in epoch ms)."""
+        if self.error is not None:
+            raise RuntimeError(f"topic watcher failed: {self.error}") from self.error
+        with self._lock:
+            return self._seen.get(marker)
+
+
+def probe_marker(record) -> str | None:
+    """The probe passenger's inbound arrival, as the marker text, from a passenger_state record."""
+    key, value = record.key, record.value
+    if not key or not value or key.get("passenger_id") != datagen.PROBE_PASSENGER:
+        return None
+    arrival = value.get("inbound_arrival")
+    return arrival.strftime(TIMESTAMP_TEXT) if arrival is not None else None
+
+
+async def run_stage_latency(
+    session: QuerySession,
+    producer: Producer,
+    watchers: dict[str, TopicWatcher],
+    recorder: Recorder,
+    probe_flight: datagen.Record,
+    *,
+    samples: int,
+    poll_interval: float = 0.25,
+    timeout: float = 180.0,
+    gap: float = 5.0,
+    jitter: float = 60.0,
+    seed: int = 0,
+    sleep: Sleep = asyncio.sleep,
+) -> None:
+    """E1 plus Kafka: for each write, when did the output appear to each Kafka reader, and in Lightning?
+
+    With one watcher per isolation level, the gaps decompose freshness:
+    read_uncommitted sees Flink's write, read_committed sees it once Flink's
+    transaction commits, and Lightning serves it after ingesting committed data.
+    """
+    rng = random.Random(seed)  # noqa: S311 - reproducible spacing, not security
+    query = probe_query()
+    for sample in range(samples):
+        update = datagen.marker_update(probe_flight, sample)
+        marker = update.value["estimated_time"].strftime(TIMESTAMP_TEXT)
+        ack = producer.send_one(update)
+        polls, last_miss_start, lightning_seen_by = 0, ack.acked_ns, None
+        deadline = ack.acked_ns + int(timeout * 1e9)
+        while recorder.now() < deadline:
+            if lightning_seen_by is None:
+                started = recorder.now()
+                call = await session.query(STATE_TOPIC, query, 1)
+                finished = recorder.now()
+                polls += 1
+                rows = result_rows(call.payload)
+                if rows and str(rows[0][0]).startswith(marker):
+                    lightning_seen_by = finished
+                else:
+                    last_miss_start = started
+            if lightning_seen_by is not None and all(w.seen(marker) for w in watchers.values()):
+                break
+            await sleep(poll_interval)
+
+        fields: dict = {"sample": sample, "marker": marker, "input_ts_ms": ack.timestamp_ms, "polls": polls}
+        missing = []
+        for label, watcher in watchers.items():
+            seen = watcher.seen(marker)
+            if seen is None:
+                missing.append(label)
+                continue
+            fields[f"{label}_ms"] = (seen[0] - ack.acked_ns) / 1e6
+            fields[f"{label}_record_ts_ms"] = seen[1]
+        if lightning_seen_by is None:
+            missing.append("lightning")
+        else:
+            fields["lightning_not_seen_before_ms"] = (last_miss_start - ack.acked_ns) / 1e6
+            fields["lightning_seen_by_ms"] = (lightning_seen_by - ack.acked_ns) / 1e6
+        if missing:
+            fields["error"] = "TIMEOUT:" + ",".join(missing)
+        recorder.event("sample", label="stages", **fields)
+
+        wait = gap + rng.uniform(0, jitter)
+        recorder.event("gap", sample=sample, seconds=wait)
+        await sleep(wait)
+
+
+# -- Hybrid read: Iceberg history plus the Kafka tail ---------------------------
+
+HYBRID_TABLE = "hybrid_flight_history"
+OLD_BATCH = frozenset({"OLD-1", "OLD-2", "OLD-3", "OLD-4"})
+NEW_BATCH = frozenset({"NEW-1", "NEW-2"})
+
+
+@dataclass
+class HybridSteps:
+    """The outside world the hybrid experiment touches, injected so it can run against fakes."""
+
+    write_old: Callable[[], None]
+    write_new: Callable[[], None]
+    kafka_ids: Callable[[], list[str]]
+    iceberg_ids: Callable[[], list[str]]
+    flink_ids: Callable[[], list[str]]
+    truncate: Callable[[], dict]
+
+
+def wait_for(
+    probe: Callable[[], bool], *, timeout: float, interval: float, clock, sleep_sync
+) -> float | None:
+    start = clock()
+    while True:
+        if probe():
+            return clock() - start
+        if clock() - start > timeout:
+            return None
+        sleep_sync(interval)
+
+
+def run_hybrid(
+    steps: HybridSteps,
+    recorder: Recorder,
+    *,
+    iceberg_timeout: float = 1200.0,
+    flink_timeout: float = 600.0,
+    interval: float = 30.0,
+    clock: Callable[[], float] = time.monotonic,
+    sleep_sync: Callable[[float], None] = time.sleep,
+) -> dict:
+    """Prove that a Flink snapshot query reads Iceberg for data that Kafka no longer has.
+
+    1. Write an old batch; wait until Tableflow has it in Iceberg.
+    2. Delete every record from the Kafka topic (DeleteRecords), as retention eventually would.
+    3. A snapshot query that still returns the old batch can only have read it from Iceberg.
+    4. Write a new batch; the same query must now return both: Iceberg history plus the Kafka tail.
+    """
+
+    def observe(step: str, **extra) -> dict:
+        state = {
+            "kafka": sorted(set(steps.kafka_ids())),
+            "iceberg": sorted(set(steps.iceberg_ids())),
+            "flink": sorted(set(steps.flink_ids())),
+        }
+        recorder.event("step", step=step, **state, **extra)
+        return state
+
+    steps.write_old()
+    waited = wait_for(
+        lambda: OLD_BATCH <= set(steps.iceberg_ids()),
+        timeout=iceberg_timeout, interval=interval, clock=clock, sleep_sync=sleep_sync,
+    )  # fmt: skip
+    before = observe("old_batch_in_iceberg", waited_s=waited)
+    if waited is None:
+        return {"verdict": "inconclusive", "reason": "old batch never reached Iceberg", "before": before}
+
+    start_offsets = steps.truncate()
+    after_truncate = observe("kafka_truncated", start_offsets=start_offsets)
+
+    steps.write_new()
+    waited_new = wait_for(
+        lambda: NEW_BATCH <= set(steps.flink_ids()),
+        timeout=flink_timeout, interval=interval, clock=clock, sleep_sync=sleep_sync,
+    )  # fmt: skip
+    after_new = observe("new_batch_written", waited_s=waited_new)
+
+    old_only_in_iceberg = not (OLD_BATCH & set(after_truncate["kafka"])) and OLD_BATCH <= set(
+        after_truncate["iceberg"]
+    )
+    flink_read_iceberg = OLD_BATCH <= set(after_truncate["flink"])
+    flink_read_both = (OLD_BATCH | NEW_BATCH) <= set(after_new["flink"])
+    verdict = "hybrid" if old_only_in_iceberg and flink_read_iceberg and flink_read_both else "not shown"
+    result = {
+        "verdict": verdict,
+        "old_only_in_iceberg": old_only_in_iceberg,
+        "flink_read_iceberg_after_truncate": flink_read_iceberg,
+        "flink_read_iceberg_and_kafka": flink_read_both,
+    }
+    recorder.event("verdict", **result)
+    return result

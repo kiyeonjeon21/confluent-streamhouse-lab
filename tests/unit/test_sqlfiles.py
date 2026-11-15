@@ -21,6 +21,7 @@ def test_expected_stages_exist() -> None:
         "history",
         "agent",
         "bench",
+        "hybrid",
     ]
 
 

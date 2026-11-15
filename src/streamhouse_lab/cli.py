@@ -195,7 +195,8 @@ def cmd_bench(args: argparse.Namespace) -> int:
         print(f"produced {len(acks)} records; expected risk {datagen.expected_risk(dataset)}")
         return 0
 
-    engine = ContextEngine(cfg)
+    # The hybrid experiment never touches Lightning, so it must not need the context reader.
+    engine = ContextEngine(cfg) if args.action != "hybrid" else None
     host = urllib.parse.urlsplit(cfg.context_mcp_endpoint).hostname or ""
     params = {k: v for k, v in vars(args).items() if k not in ("func", "command", "action")}
     with measure.Recorder(
@@ -224,13 +225,66 @@ def cmd_bench(args: argparse.Namespace) -> int:
                     engine.session, recorder, levels=levels, duration=args.duration,
                     passengers=args.passengers, seed=args.seed,
                 )  # fmt: skip
+            elif args.action == "e2":
+                from streamhouse_lab.kafka_io import BenchProducer, TopicReader
+
+                producer = BenchProducer.connect(cfg)
+                watchers = {
+                    level: bench.TopicWatcher(
+                        TopicReader.connect(cfg, bench.STATE_TOPIC, isolation=level), bench.probe_marker
+                    ).start()
+                    for level in ("read_uncommitted", "read_committed")
+                }
+                try:
+                    async with engine.session() as session:
+                        await bench.run_stage_latency(
+                            session, producer, watchers, recorder, datagen.probe_flight(dataset),
+                            samples=args.samples, poll_interval=args.poll, gap=args.gap,
+                            jitter=args.jitter, seed=args.seed,
+                        )  # fmt: skip
+                finally:
+                    for watcher in watchers.values():
+                        watcher.stop()
+            elif args.action == "hybrid":
+                run_hybrid_experiment(cfg, recorder)
 
         asyncio.run(run())
         recorder.event("net", phase="after", host=host, **measure.probe_network(host))
     print(f"raw results: {recorder.path.relative_to(config.REPO_ROOT)}")
-    metric = "seen_by_ms" if args.action == "e1" else "latency_ms"
-    print(summarize.to_markdown(summarize.summarize_file(recorder.path, metric)[1]))
+    metrics = {
+        "e1": ["seen_by_ms"],
+        "e2": ["read_uncommitted_ms", "read_committed_ms", "lightning_seen_by_ms"],
+        "hybrid": [],
+    }.get(args.action, ["latency_ms"])
+    for metric in metrics:
+        print(f"\n{metric}")
+        print(summarize.to_markdown(summarize.summarize_file(recorder.path, metric)[1]))
     return 0
+
+
+def run_hybrid_experiment(cfg: config.LabConfig, recorder) -> None:
+    """Wire the hybrid-read experiment to the real Kafka, Iceberg, and Flink."""
+    from streamhouse_lab import bench, iceberg, kafka_io
+
+    table = bench.HYBRID_TABLE
+    check = sqlfiles.parse(sqlfiles.stage("hybrid").path / "checks" / "hybrid-history.sql")
+
+    with FlinkClient(cfg) as client:
+
+        def flink_ids() -> list[str]:
+            name = sqlfiles.statement_name("check", "hybrid", str(int(time.time() * 1000)))
+            return [str(r["flight_id"]) for r in client.query(name, check.statement).records()]
+
+        steps = bench.HybridSteps(
+            write_old=lambda: stages.run_event(client, "hybrid-old-batch"),
+            write_new=lambda: stages.run_event(client, "hybrid-new-batch"),
+            kafka_ids=lambda: [r.value["flight_id"] for r in kafka_io.read_all(cfg, table) if r.value],
+            iceberg_ids=lambda: [r["flight_id"] for r in iceberg.rows(iceberg.load(cfg, table))],
+            flink_ids=flink_ids,
+            truncate=lambda: kafka_io.truncate(cfg, table),
+        )
+        result = bench.run_hybrid(steps, recorder)
+    print(result)
 
 
 def cmd_agent_connection(args: argparse.Namespace) -> int:
@@ -289,15 +343,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_iceberg)
 
     p = sub.add_parser("bench", help="Phase 4: generate data, run experiments, summarize results")
-    p.add_argument("action", choices=["gen", "e1", "e3", "e4", "summarize"])
+    p.add_argument("action", choices=["gen", "e1", "e2", "e3", "e4", "hybrid", "summarize"])
     p.add_argument("file", nargs="?", help="results file for summarize")
     p.add_argument("--passengers", type=int, default=10_000)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--dry-run", action="store_true", help="gen: print the dataset shape, write nothing")
     p.add_argument("--location", default="unspecified", help="where the client runs, e.g. seoul-laptop")
-    p.add_argument("--samples", type=int, default=30, help="e1: freshness samples")
-    p.add_argument("--poll", type=float, default=0.25, help="e1: seconds between polls")
-    p.add_argument("--gap", type=float, default=5.0, help="e1: minimum seconds between samples")
+    p.add_argument("--samples", type=int, default=30, help="e1, e2: freshness samples")
+    p.add_argument("--poll", type=float, default=0.25, help="e1, e2: seconds between polls")
+    p.add_argument("--gap", type=float, default=5.0, help="e1, e2: minimum seconds between samples")
     p.add_argument(
         "--jitter",
         type=float,

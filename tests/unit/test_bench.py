@@ -159,7 +159,10 @@ class FakeProducer:
     def flush(self, _timeout):
         for topic, callback in self.pending:
             message = SimpleNamespace(
-                topic=lambda t=topic: t, partition=lambda: 0, offset=lambda o=self.offset: o
+                topic=lambda t=topic: t,
+                partition=lambda: 0,
+                offset=lambda o=self.offset: o,
+                timestamp=lambda o=self.offset: (1, 1_000 + o),  # (CreateTime, epoch ms)
             )
             self.offset += 1
             callback("boom" if self.fail else None, message)
@@ -394,3 +397,178 @@ def test_freshness_spaces_writes_with_seeded_jitter(tmp_path: Path) -> None:
     assert max(waits) - min(waits) > 20, "jitter must spread write times"
     _, events = summarize.load(rec.path)
     assert [e["seconds"] for e in events if e["kind"] == "gap"] == waits
+
+
+# -- E2 and the hybrid read --------------------------------------------------
+
+
+class ScriptedReader:
+    """A topic reader that yields prepared batches, then nothing."""
+
+    def __init__(self, batches):
+        self.batches = list(batches)
+        self.closed = False
+
+    def poll(self, timeout=0.1):
+        import time as _time
+
+        _time.sleep(0.01)
+        return self.batches.pop(0) if self.batches else []
+
+    def close(self):
+        self.closed = True
+
+
+def received(passenger, arrival, received_ns=5, timestamp_ms=1234):
+    return kafka_io.Received(
+        key={"passenger_id": passenger},
+        value={"inbound_arrival": arrival},
+        partition=0,
+        offset=0,
+        timestamp_ms=timestamp_ms,
+        received_ns=received_ns,
+    )
+
+
+def test_probe_marker_reads_only_the_probe_passenger() -> None:
+    arrival = dt.datetime(2026, 12, 1, 12, 51)
+    assert bench.probe_marker(received(datagen.PROBE_PASSENGER, arrival)) == "2026-12-01 12:51:00"
+    assert bench.probe_marker(received("B-P000001", arrival)) is None
+    assert bench.probe_marker(kafka_io.Received(None, None, 0, 0, 0, 0)) is None
+
+
+def test_watcher_keeps_first_sighting_and_surfaces_errors() -> None:
+    arrival = dt.datetime(2026, 12, 1, 12, 51)
+    reader = ScriptedReader(
+        [[received(datagen.PROBE_PASSENGER, arrival, 100)], [received(datagen.PROBE_PASSENGER, arrival, 900)]]
+    )
+    watcher = bench.TopicWatcher(reader, bench.probe_marker).start()
+    import time as _time
+
+    deadline = _time.monotonic() + 2
+    while watcher.seen("2026-12-01 12:51:00") is None and _time.monotonic() < deadline:
+        _time.sleep(0.01)
+    _time.sleep(0.05)
+    watcher.stop()
+    assert watcher.seen("2026-12-01 12:51:00") == (100, 1234)
+    assert reader.closed
+
+    class Broken:
+        def poll(self, timeout=0.1):
+            raise ValueError("bad record")
+
+        def close(self):
+            pass
+
+    broken = bench.TopicWatcher(Broken(), bench.probe_marker).start()
+    broken._thread.join(timeout=2)
+    with pytest.raises(RuntimeError, match="bad record"):
+        broken.seen("x")
+
+
+class StaticWatcher:
+    def __init__(self, seen):
+        self._seen = seen
+
+    def seen(self, marker):
+        return self._seen.get(marker)
+
+
+def test_stage_latency_records_each_stage_relative_to_ack(tmp_path: Path) -> None:
+    flight = datagen.probe_flight(datagen.generate(10, 1))
+    marker = datagen.marker_update(flight, 0).value["estimated_time"].strftime(bench.TIMESTAMP_TEXT)
+    rec = make_recorder(tmp_path, ticks=range(0, 10**15, 10**6))  # 1 ms per clock read
+    ack_ns = {}
+
+    def send_one(record):
+        ack_ns["t"] = rec.now()
+        return kafka_io.Ack("t", 0, 0, ack_ns["t"], 1_000)
+
+    watchers = {
+        "read_uncommitted": StaticWatcher({marker: (10**6 * 5_000, 2_000)}),
+        "read_committed": StaticWatcher({marker: (10**6 * 9_000, 2_500)}),
+    }
+    session = FakeSession([lightning_payload([["stale"]]), lightning_payload([[marker]])])
+    run = bench.run_stage_latency(
+        session, SimpleNamespace(send_one=send_one), watchers, rec, flight,
+        samples=1, sleep=no_sleep, jitter=0,
+    )  # fmt: skip
+    asyncio.run(run)
+    rec.close()
+    _, events = summarize.load(rec.path)
+    (sample,) = [e for e in events if e["kind"] == "sample"]
+    assert "error" not in sample
+    assert sample["read_uncommitted_ms"] == (10**6 * 5_000 - ack_ns["t"]) / 1e6
+    assert sample["read_committed_record_ts_ms"] == 2_500
+    assert sample["input_ts_ms"] == 1_000
+    assert 0 < sample["lightning_not_seen_before_ms"] < sample["lightning_seen_by_ms"]
+
+
+def test_stage_latency_reports_which_stage_timed_out(tmp_path: Path) -> None:
+    flight = datagen.probe_flight(datagen.generate(10, 1))
+    rec = make_recorder(tmp_path, ticks=range(0, 10**15, 10**9))  # 1 s per clock read
+    run = bench.run_stage_latency(
+        FakeSession([lightning_payload([["stale"]])]),
+        SimpleNamespace(send_one=lambda r: kafka_io.Ack("t", 0, 0, rec.now())),
+        {"read_committed": StaticWatcher({})},
+        rec, flight, samples=1, timeout=5, sleep=no_sleep, jitter=0,
+    )  # fmt: skip
+    asyncio.run(run)
+    rec.close()
+    _, events = summarize.load(rec.path)
+    (sample,) = [e for e in events if e["kind"] == "sample"]
+    assert sample["error"] == "TIMEOUT:read_committed,lightning"
+
+
+class FakeWorld:
+    """Kafka, Iceberg, and Flink for the hybrid experiment, with switchable Flink behaviour."""
+
+    def __init__(self, flink_reads_iceberg: bool):
+        self.kafka: list[str] = []
+        self.iceberg: list[str] = []
+        self.flink_reads_iceberg = flink_reads_iceberg
+
+    def steps(self) -> bench.HybridSteps:
+        def write(batch):
+            def go():
+                self.kafka += sorted(batch)
+                self.iceberg += sorted(batch)
+
+            return go
+
+        def truncate():
+            self.kafka = []
+            return {0: 4}
+
+        def flink():
+            return self.kafka + (self.iceberg if self.flink_reads_iceberg else [])
+
+        return bench.HybridSteps(
+            write_old=write(bench.OLD_BATCH),
+            write_new=write(bench.NEW_BATCH),
+            kafka_ids=lambda: list(self.kafka),
+            iceberg_ids=lambda: list(self.iceberg),
+            flink_ids=flink,
+            truncate=truncate,
+        )
+
+
+def test_hybrid_verdict_when_flink_reads_iceberg(tmp_path: Path) -> None:
+    rec = make_recorder(tmp_path)
+    result = bench.run_hybrid(FakeWorld(True).steps(), rec, interval=0, sleep_sync=lambda _: None)
+    rec.close()
+    assert result["verdict"] == "hybrid"
+    _, events = summarize.load(rec.path)
+    truncated = next(e for e in events if e.get("step") == "kafka_truncated")
+    assert truncated["kafka"] == [] and set(truncated["flink"]) == set(bench.OLD_BATCH)
+
+
+def test_hybrid_verdict_when_flink_reads_only_kafka(tmp_path: Path) -> None:
+    rec = make_recorder(tmp_path)
+    result = bench.run_hybrid(
+        FakeWorld(False).steps(), rec, interval=0, flink_timeout=0, sleep_sync=lambda _: None
+    )
+    rec.close()
+    assert result["verdict"] == "not shown"
+    assert result["old_only_in_iceberg"] is True
+    assert result["flink_read_iceberg_after_truncate"] is False
