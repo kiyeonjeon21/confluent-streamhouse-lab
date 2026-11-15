@@ -78,5 +78,8 @@ Reading:
 - **Lightning lags the commit by about 4 to 6 s.** The lower bounds (3.2 to 5.3 s) say that a query started that long after the committed record reached a consumer in Seoul still did not see it.
   The documentation says Lightning updates within 100 ms of data arriving in the topic; for this transactional Flink output, measured from commit visibility, it was 3 to 7 s.
   Because the consumer is in Seoul, it saw the commit somewhat after the broker did, so the server-side lag is, if anything, slightly longer.
+- **Commits run on a fixed clock.** Consecutive samples' commits, as the `read_committed` consumer saw them, were 59.7 to 62.0 s apart, or about 122 s when an interval passed with no sample.
+  A least-squares fit of evenly spaced commits gives one every 61.18 s, with every observation within 0.97 s of it over 34 intervals (`uv run lab chart commit-clock results/e2/20261115T101659Z-d2f0ba.jsonl`).
+  When a write arrives decides only how long it waits for the next commit.
 - **E1's "fixed 17 s" decomposes** into the smallest commit visibility (about 11 s: flush plus checkpoint plus transaction commit) plus the Lightning hop (about 5 s).
 - Total freshness matched E1 closely: p50 44.3 s here against 46.1 s in E1, mean 42.8 s against 42.4 s.

@@ -6,7 +6,7 @@ part: 7
 lang: ko
 alternate_url: /07-is-a-streamhouse-worth-it.html
 translation_key: chapter-07
-reading_time: 8
+reading_time: 10
 sample: 6개 기능의 실험 증거
 takeaways:
   - label: 관측 결과
@@ -97,23 +97,60 @@ Basic cluster에서는 읽기 전용 role을 쓸 수 없어 agent credential이 
 - 가장 저렴한 cluster에서 최소 권한이 필요하다. Agent가 read-only credential을 가져야 한다면 Standard cluster 비용을 반영해야 한다.
 - AWS 이외의 cloud. Lightning Tables와 Real-Time Context Engine은 AWS에서만 제공된다.
 
+## 실험 비용 {#what-the-lab-cost}
+
+모든 실험은 2026년 11월 15일 `us-east-1`에서 두 세션으로 진행했고, 세션이 끝날 때마다 환경을 철거했다.
+첫 세션(2시간 41분)에서는 여섯 기능과 E1, E3, E4 실험을 실행했다.
+두 번째 세션(1시간 7분)에서는 E2와 hybrid read를 실행했다.
+Costs API가 보고한 그날의 비용은 다음과 같다.
+
+| 제품 | 미터 | 청구량 | 단가 | 비용 |
+|---|---|---|---|---|
+| Flink | CFU-hour | 6.5 | $0.21 | $1.37 |
+| Kafka, Basic cluster | eCKU-hour | 8 | $0.135 | $1.08 |
+| Tableflow | topic-hour | 5 | $0.10 | $0.50 |
+| Lightning Tables (Real-Time Context Engine) | CCU-hour | 4.2 | $0.105 | $0.44 |
+| 에이전트의 managed model inference | 입력·출력 token | 약 46,000개, 3,800개 | 백만 개당 $3, $15 | $0.20 |
+| Kafka network | 입출력 GB | 약 0.06 | GB당 $0.05 | $0.01 미만 |
+| **합계** | | | | **$3.59** |
+
+첫 세션은 $2.59, 두 번째 세션은 $1.00였다.
+이 숫자는 마지막 철거 후 약 3시간 30분 뒤에 읽었다.
+Confluent [billing FAQ](https://docs.confluent.io/cloud/current/billing/billing-faq.html)에 따르면 비용 데이터가 Costs API에 반영되기까지 최대 72시간이 걸릴 수 있으므로 항목이 더 추가될 수 있다.
+
+예산을 잡기 전에 알아 둘 점이 세 가지 있다.
+
+Flink가 가장 큰 항목이었다.
+Materialized Table은 계속 실행되고, check와 snapshot query마다 CFU-minute가 더해진다.
+
+Basic cluster에도 요금이 나왔다.
+[가격 페이지](https://www.confluent.io/confluent-cloud/pricing/)에는 Basic의 첫 eCKU가 무료라고 되어 있지만, 청구서에는 두 cluster가 존재한 UTC 시간대 5개보다 많은 eCKU-hour 8개가 찍혔다.
+Cluster가 존재한 매시간 eCKU 하나, 그리고 벤치마크를 실행한 시간대마다 하나씩 더 청구됐다고 보면 숫자가 맞는다. 그런 시간대는 첫 세션에 2개, 두 번째 세션에 1개였다.
+Costs API는 일 단위 합계만 주므로 이는 추론이며, 무료 eCKU가 왜 적용되지 않았는지는 알 수 없다.
+
+시간 단위 미터는 올림으로 계산된다.
+Confluent는 일부만 사용한 시간도 UTC 기준 한 시간 전체로 청구한다.
+Tableflow에서 가장 잘 보인다. 첫 세션에서 topic은 2시간 20분 동안 활성화됐고 3 topic-hour가 청구됐다.
+
 ## 비용 구조
 
-실행되는 항목에 비용이 발생한다.
+같은 구성을 계속 켜 두면 위 단가 기준으로 다음 비용이 든다.
 
-- Materialized Table은 데이터 도착 여부와 관계없이 존재하는 동안 최소 Flink CFU 하나를 사용한다.
-- Tableflow topic은 활성화된 시간만큼 과금된다.
+- Materialized Table은 데이터 도착 여부와 관계없이 존재하는 동안 최소 CFU 하나를 사용한다. 시간당 $0.21, 하루 약 $5다.
+- Tableflow topic은 활성화된 동안 시간당 $0.10, 하루 $2.40이다.
+- Basic cluster는 topic과 partition이 없는 [zero consumption](https://docs.confluent.io/cloud/current/billing/dimensions/overview.html) 상태에서만 비용이 0이다. 위 해석이 맞다면 topic이 있는 유휴 Basic cluster는 시간당 $0.135, 하루 약 $3.24다.
 - Lightning Tables는 항상 storage 비용이 들고 데이터가 도착하거나 query가 scan할 때 compute 비용이 든다.
-- Agent는 model inference 비용이 든다.
+- 에이전트는 실행할 때마다 비용이 든다. 그날의 model 호출 비용은 모두 합쳐 $0.20였다.
 
-유휴 Basic cluster, compute pool, Schema Registry에는 비용이 들지 않는다. 그래서 전체 구성을 코드로 만들고 작업 세션 사이에 철거할 수 있었다.
+Statement가 없는 compute pool과 Schema Registry Essentials에는 비용이 없다.
+비싼 것은 계속 실행되는 부분이며, 세션 사이에 철거한 덕분에 하루 비용을 $4 미만으로 유지했다.
 
 ## 더 확인하고 싶은 것
 
 - Statement의 commit interval을 줄일 수 있는가? 가능하다면 CFU 사용량에는 어떤 영향이 있는가? 문서에는 설정이 없고 support 문의를 안내한다.
 - 리전 내부에서 측정할 때 100,000행 이상에서 scanned bytes와 latency는 어떻게 변하는가?
 - Materialized Table을 실행 중에 변경하거나 부하 중지하고 schema를 깨뜨렸을 때 evolution과 failure는 어떤 모습인가?
-- 이 모든 항목은 실제 invoice에서 얼마인가?
+- Basic cluster에 eCKU 요금이 청구된 이유는 무엇인가? 시간 단위 비용 데이터나 support 문의가 필요하다.
 
 ## 내가 사용하겠는가?
 

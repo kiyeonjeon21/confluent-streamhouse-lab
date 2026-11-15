@@ -109,7 +109,7 @@ Unconfirmed: the reported size of 0 B gives nothing to compare against. Measure 
 
 ## Cost
 
-Not yet broken down: the billing page lags, so the E7 cost record for this session will be read from the invoice once the day closes.
+Broken down in [E7: what the lab cost](2026-11-15-e7-cost.md). This session was the first of two that day and cost $2.59.
 
 ## What to do next
 

@@ -287,6 +287,38 @@ def run_hybrid_experiment(cfg: config.LabConfig, recorder, *, resume: bool = Fal
     print(result)
 
 
+def cmd_chart(args: argparse.Namespace) -> int:
+    """Offline: render recorded results as blog figures, or print the commit-clock fit."""
+    from streamhouse_lab import charts
+
+    files = [Path(f) for f in args.files]
+    expected = {"freshness-runs": 2, "stages": 1, "commit-clock": 1}[args.kind]
+    if len(files) != expected:
+        print(f"chart {args.kind} needs {expected} results file(s)", file=sys.stderr)
+        return 2
+    out = Path(args.out)
+    if args.kind == "freshness-runs":
+        fixed, jitter = (charts.freshness_values(f) for f in files)
+        written = charts.write_figures(
+            "freshness-runs", lambda lang: charts.render_freshness_runs(fixed, jitter, lang), out
+        )
+    elif args.kind == "stages":
+        samples = charts.stages(files[0])
+        written = charts.write_figures(
+            "freshness-stages", lambda lang: charts.render_stages(samples, lang), out
+        )
+    else:
+        clock = charts.commit_clock(charts.stages(files[0]))
+        print(
+            f"{clock.samples} commits over {clock.intervals} intervals: one every {clock.period:.2f} s, "
+            f"every observation within {clock.max_residual:.2f} s of that clock"
+        )
+        return 0
+    for path in written:
+        print(path)
+    return 0
+
+
 def cmd_agent_connection(args: argparse.Namespace) -> int:
     cfg = config.load()
     if args.action == "create":
@@ -364,6 +396,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--metric", default="latency_ms", help="summarize: field to summarize")
     p.add_argument("--resume", action="store_true", help="hybrid: start after the old batch was truncated")
     p.set_defaults(func=cmd_bench)
+
+    p = sub.add_parser("chart", help="Phase 4: render recorded results as blog figures (offline)")
+    p.add_argument("kind", choices=["freshness-runs", "stages", "commit-clock"])
+    p.add_argument("files", nargs="+", help="freshness-runs: fixed-gap E1 file, then jittered E1 file")
+    p.add_argument("--out", default=str(config.REPO_ROOT / "pages" / "_includes" / "charts"))
+    p.set_defaults(func=cmd_chart)
 
     p = sub.add_parser("agent-connection", help="manage the agent's MCP connection to the context engine")
     p.add_argument("action", choices=["create", "show", "delete"])

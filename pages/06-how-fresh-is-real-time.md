@@ -72,10 +72,12 @@ With jitter, 30 samples, from broker acknowledgement to visible in Lightning:
 
 All 30 values, sorted: 17.8, 19.1, 20.6, 21.1, 23.9, 25.0, 30.0, 30.6, 32.6, 34.3, 36.1, 37.3, 38.8, 42.3, 46.1, 46.6, 47.4, 47.8, 48.6, 50.0, 50.2, 51.4, 52.4, 53.5, 53.7, 57.5, 59.5, 64.6, 66.9, 67.6.
 
+{% include charts/freshness-runs.en.html %}
+
 They spread over about 50 seconds, which is what you'd expect from write times spread across a 61-second interval.
 The smallest value was 17 to 18 seconds in both runs, so the data fit a simple model:
 
-> freshness ≈ about 17 s fixed + the wait for the next commit, between 0 and about 61 s
+> freshness ≈ about 17 s fixed + the wait for the next commit, between 0 and about 61 s
 
 That was still a guess, so I measured the stages directly.
 
@@ -94,15 +96,7 @@ That way each write is observed three times: when Flink writes it, when it's com
 | Output committed | 11.3 | 38.5 | 61.1 | 61.8 | 36.7 |
 | Visible in Lightning | 17.5 | 44.3 | 66.9 | 68.2 | 42.8 |
 
-<figure class="benchmark-chart benchmark-chart--timeline" aria-labelledby="freshness-chart-title">
-  <figcaption id="freshness-chart-title"><strong>Cumulative p50 after the broker acknowledged the source write</strong><span>Scale ends at Lightning visibility, 44.3 seconds.</span></figcaption>
-  <div class="benchmark-axis" aria-hidden="true"><span></span><div><span>0</span><span>44.3 s</span></div><span></span></div>
-  <div class="benchmark-chart__plot" aria-hidden="true">
-    <div class="benchmark-row"><span>Flink wrote output</span><div><i class="bar--fresh-write"></i></div><strong>2.6 s</strong></div>
-    <div class="benchmark-row"><span>Output committed</span><div><i class="bar--fresh-commit"></i></div><strong>38.5 s</strong></div>
-    <div class="benchmark-row"><span>Lightning visible</span><div><i class="bar--full"></i></div><strong>44.3 s</strong></div>
-  </div>
-</figure>
+{% include charts/freshness-stages.en.html %}
 
 And the gaps between them, per sample:
 
@@ -122,6 +116,11 @@ Most of the time is spent waiting for the commit.
 Committed output became visible 11 to 62 seconds after the write.
 That matches the documented commit about once a minute, and the 61-second steps in the first run.
 In all 30 samples, Lightning served the change only after the commit, so for this output it behaved like a reader of committed data.
+
+The commits kept their own time.
+The `read_committed` consumer saw consecutive samples' commits 59.7 to 62.0 seconds apart, or about 122 seconds when a whole interval passed with no sample in it.
+Fitting one fixed clock to all 30 gives a commit every 61.2 seconds, and every observed commit fell within 1 second of that clock over about 35 minutes.
+When a write arrived decided only how long it waited for the next tick.
 
 After the commit, Lightning took another 3 to 7 seconds.
 This experiment can't observe where Confluent marks data as having arrived for the documented 100 ms target.

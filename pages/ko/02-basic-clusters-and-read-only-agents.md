@@ -82,7 +82,7 @@ context reader가 모든 subject에 `DeveloperRead`를 갖고 있었는데도 Sc
 
 | 선택지 | 자격 증명의 권한 | 클러스터 요구사항 또는 대가 |
 |---|---|---|
-| Basic + reader에 `CloudClusterAdmin` | MCP 도구는 읽기 전용이지만 키가 유출되면 클러스터를 관리할 수 있음 | 첫 eCKU 포함 |
+| Basic + reader에 `CloudClusterAdmin` | MCP 도구는 읽기 전용이지만 키가 유출되면 클러스터를 관리할 수 있음 | 가격 페이지상 첫 eCKU는 무료지만 이 실험에서는 eCKU-hour당 $0.135가 청구됨([Chapter 7](07-is-a-streamhouse-worth-it.md#what-the-lab-cost)) |
 | Standard + `DeveloperRead` | 문서에 명시된 읽기 전용 권한 | eCKU-hour당 $0.75부터, 하루 약 $18 |
 | Quick start처럼 사용자 본인의 Global key 사용 | 해당 사용자가 할 수 있는 모든 작업 | 클러스터 가격 변화는 없지만 사용자당 두 개인 Global key 중 하나 사용 |
 

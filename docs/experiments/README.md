@@ -93,6 +93,7 @@ Method: a log kept during the lab of every manual step, every surprise, and ever
 Built and unit tested on 2026-11-15 ([`tests/unit/test_bench.py`](../../tests/unit/test_bench.py)).
 First runs of E1, E3, and E4: [2026-11-15-first-runs.md](2026-11-15-first-runs.md).
 E2 and the hybrid read: [2026-11-15-e2-and-hybrid.md](2026-11-15-e2-and-hybrid.md).
+The cost part of E7: [2026-11-15-e7-cost.md](2026-11-15-e7-cost.md).
 
 | Piece | Where | What it guarantees |
 |---|---|---|
@@ -104,6 +105,7 @@ E2 and the hybrid read: [2026-11-15-e2-and-hybrid.md](2026-11-15-e2-and-hybrid.m
 | Topic readers and truncation | [`kafka_io.py`](../../src/streamhouse_lab/kafka_io.py) | Readers per isolation level that deserialize with the registered schemas; `read_all` from the log start; `truncate` with `DeleteRecords`. |
 | Runners | [`bench.py`](../../src/streamhouse_lab/bench.py) | E1, E2, E3, E4, and the hybrid read as specified above. E1 and E2 record both Lightning visibility bounds per sample and space writes with seeded jitter; the hybrid runner records what Kafka, Iceberg, and Flink each see at every step and supports `--resume`. |
 | Summaries | [`summarize.py`](../../src/streamhouse_lab/summarize.py) | Nearest-rank percentiles, so every reported number was actually observed; errors counted separately. |
+| Figures | [`charts.py`](../../src/streamhouse_lab/charts.py) | Renders recorded runs as HTML figures for the blog in English and Korean, and fits the commit clock. Offline; reads only `results/`. |
 
 Commands:
 
@@ -117,6 +119,11 @@ uv run lab bench hybrid --location seoul-laptop                   # needs Tablef
 uv run lab bench e3 --repeat 100 --passengers 10000 --location seoul-laptop
 uv run lab bench e4 --levels 1,2,4,8,16,32 --duration 30 --location seoul-laptop
 uv run lab bench summarize results/e3/<run-id>.jsonl --metric latency_ms
+
+# offline: blog figures in pages/_includes/charts/, and the commit-clock fit
+uv run lab chart freshness-runs results/e1/<fixed-gap-run>.jsonl results/e1/<jittered-run>.jsonl
+uv run lab chart stages results/e2/<run-id>.jsonl
+uv run lab chart commit-clock results/e2/<run-id>.jsonl
 ```
 
 ## Running an experiment: approvals

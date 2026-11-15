@@ -1,6 +1,7 @@
 const articleBody = document.querySelector(".article-body");
 const tocLinks = [...document.querySelectorAll(".article-toc a[href^='#']")];
 const languageLink = document.querySelector(".language-switch a[hreflang]");
+const korean = document.documentElement.lang === "ko";
 
 // Remembers the language a reader picked and sends them to it on later visits.
 // Storage can be unavailable (private mode, blocked site data); the switch still works.
@@ -81,12 +82,14 @@ if (articleBody) {
     region.setAttribute("role", "region");
     region.setAttribute(
       "aria-label",
-      `${heading?.textContent || `Table ${index + 1}`} data table`
+      korean
+        ? `${heading?.textContent || `표 ${index + 1}`} 데이터 표`
+        : `${heading?.textContent || `Table ${index + 1}`} data table`
     );
 
     hint.className = "table-block__hint";
     hint.setAttribute("aria-hidden", "true");
-    hint.textContent = "Scroll horizontally to see all columns →";
+    hint.textContent = korean ? "옆으로 밀어 나머지 열 보기 →" : "Scroll horizontally to see all columns →";
 
     table.before(block);
     block.append(region, hint);

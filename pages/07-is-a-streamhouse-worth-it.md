@@ -6,7 +6,7 @@ part: 7
 lang: en
 alternate_url: /ko/07-is-a-streamhouse-worth-it.html
 translation_key: chapter-07
-reading_time: 8
+reading_time: 10
 sample: Evidence from all 6 capabilities
 takeaways:
   - label: "Observed"
@@ -98,23 +98,60 @@ Based on what the lab showed, a Streamhouse on Confluent Cloud fits well when:
 - Least privilege on the cheapest cluster. If agents must hold read-only credentials, budget for a Standard cluster.
 - Clouds other than AWS. Lightning Tables and the Real-Time Context Engine are AWS only.
 
+## What the lab cost
+
+I ran everything on November 15, 2026, in two sessions in `us-east-1`, and tore the lab down after each.
+The first session, 2 hours 41 minutes, covered the six capabilities and experiments E1, E3, and E4.
+The second, 1 hour 7 minutes, covered E2 and the hybrid read.
+The Costs API reported this for the day:
+
+| Product | Meter | Billed | Unit price | Cost |
+|---|---|---|---|---|
+| Flink | CFU-hours | 6.5 | $0.21 | $1.37 |
+| Kafka, Basic cluster | eCKU-hours | 8 | $0.135 | $1.08 |
+| Tableflow | topic-hours | 5 | $0.10 | $0.50 |
+| Lightning Tables (Real-Time Context Engine) | CCU-hours | 4.2 | $0.105 | $0.44 |
+| Managed model inference for the agent | input and output tokens | about 46,000 and 3,800 | $3 and $15 per million | $0.20 |
+| Kafka network | GB in and out | about 0.06 | $0.05 per GB | under $0.01 |
+| **Total** | | | | **$3.59** |
+
+The first session cost $2.59 and the second $1.00.
+I read these numbers about three and a half hours after the last teardown.
+Confluent's [billing FAQ](https://docs.confluent.io/cloud/current/billing/billing-faq.html) says cost data can take up to 72 hours to reach the Costs API, so more lines could still appear.
+
+Three things are worth knowing before you budget.
+
+Flink was the largest line.
+The materialized tables run continuously, and every check and snapshot query adds CFU-minutes on top.
+
+The Basic cluster was billed.
+The [pricing page](https://www.confluent.io/confluent-cloud/pricing/) lists Basic's first eCKU as free, yet the invoice charged 8 eCKU-hours, more than the 5 UTC hours the two clusters existed in.
+The counts fit one billed eCKU for every hour a cluster existed, plus one more in each hour a benchmark ran: two hours in the first session and one in the second.
+The Costs API only returns daily totals, so that is an inference, and I don't know why the free eCKU didn't apply.
+
+Hourly meters round up.
+Confluent bills any partial hour as a full UTC hour.
+Tableflow shows it most clearly: the topic was enabled for 2 hours 20 minutes in the first session and billed for 3 topic-hours.
+
 ## The cost shape
 
-You pay for what runs:
+Left running, the same setup would cost this by the hour at those prices:
 
-- A materialized table costs at least one Flink CFU for as long as it exists, whether or not data arrives.
-- A Tableflow topic costs by the hour while it's enabled.
+- A materialized table uses at least one CFU for as long as it exists, whether or not data arrives: $0.21 an hour, about $5 a day.
+- A Tableflow topic costs $0.10 an hour while it's enabled, $2.40 a day.
+- A Basic cluster costs nothing only at [zero consumption](https://docs.confluent.io/cloud/current/billing/dimensions/overview.html), with no topics or partitions. If the pattern above holds, an idle Basic cluster with topics costs $0.135 an hour, about $3.24 a day.
 - Lightning Tables always cost storage, and cost compute when data arrives or queries scan.
-- The agent costs per run.
+- The agent costs per run. Its model calls for the whole day came to $0.20.
 
-An idle Basic cluster, compute pool, and Schema Registry cost nothing, which is why I could build everything in code and tear it down between sessions.
+A compute pool with no statements and Schema Registry Essentials cost nothing.
+The expensive parts are the ones that run continuously, and tearing the lab down between sessions kept the day under $4.
 
 ## What I would still want to know
 
 - Whether the commit interval can be shortened for a statement, and what that does to CFU use. The documentation describes no setting for it and points to support.
 - How scanned bytes and latency change at 100,000 rows and beyond, measured from inside the region.
 - What evolution and failure look like: changing a materialized table in place, stopping it under load, breaking a schema.
-- What each of those actually costs on the invoice.
+- Why the Basic cluster was billed for eCKUs. Answering that needs hourly cost data or a question to support.
 
 ## Would I use it?
 

@@ -71,6 +71,8 @@ Jitter를 적용한 30개 샘플에서 broker acknowledgement부터 Lightning vi
 
 정렬한 30개 값: 17.8, 19.1, 20.6, 21.1, 23.9, 25.0, 30.0, 30.6, 32.6, 34.3, 36.1, 37.3, 38.8, 42.3, 46.1, 46.6, 47.4, 47.8, 48.6, 50.0, 50.2, 51.4, 52.4, 53.5, 53.7, 57.5, 59.5, 64.6, 66.9, 67.6.
 
+{% include charts/freshness-runs.ko.html %}
+
 61초 구간에 분산한 쓰기에서 예상할 수 있듯 값은 약 50초 범위에 퍼졌다.
 두 실행 모두 최솟값이 17–18초였으므로 다음의 단순한 모델과 맞았다.
 
@@ -92,15 +94,7 @@ Broker 승인 이후 초 단위 결과이며 30개 샘플 모두 오류가 없�
 | 출력 커밋 | 11.3 | 38.5 | 61.1 | 61.8 | 36.7 |
 | Lightning visibility | 17.5 | 44.3 | 66.9 | 68.2 | 42.8 |
 
-<figure class="benchmark-chart benchmark-chart--timeline" aria-labelledby="freshness-chart-title-ko">
-  <figcaption id="freshness-chart-title-ko"><strong>Broker acknowledgement 이후 누적 p50</strong><span>Lightning visibility 44.3초를 축의 끝으로 사용했다.</span></figcaption>
-  <div class="benchmark-axis" aria-hidden="true"><span></span><div><span>0</span><span>44.3 s</span></div><span></span></div>
-  <div class="benchmark-chart__plot" aria-hidden="true">
-    <div class="benchmark-row"><span>Flink output write</span><div><i class="bar--fresh-write"></i></div><strong>2.6 s</strong></div>
-    <div class="benchmark-row"><span>출력 커밋</span><div><i class="bar--fresh-commit"></i></div><strong>38.5 s</strong></div>
-    <div class="benchmark-row"><span>Lightning visibility</span><div><i class="bar--full"></i></div><strong>44.3 s</strong></div>
-  </div>
-</figure>
+{% include charts/freshness-stages.ko.html %}
 
 샘플별 단계 사이의 차이는 다음과 같다.
 
@@ -113,6 +107,11 @@ Lightning 구간은 범위다. 첫 값은 commit 뒤 시작한 query가 여전�
 
 Flink write 단계는 5초 sink flush와 일치한다. 입력 후 0–5초, 평균 2.7초에 output이 나타났고 broker timestamp만 사용해도 중앙값 2.5초였다.
 대부분의 시간은 commit 대기였다. Commit된 output은 write 후 11–62초에 보였으며 문서의 약 1분 commit 및 첫 실행의 61초 간격과 맞는다. 30개 모두 Lightning은 commit 뒤에만 변경을 제공했다.
+
+Commit은 자기 박자대로 일어났다.
+`read_committed` consumer가 본 연속된 샘플의 commit 간격은 59.7–62.0초였고, 샘플이 하나도 없던 주기를 건너뛴 경우는 약 122초였다.
+30개 전체에 고정 주기 하나를 맞추면 61.2초마다 한 번이며, 약 35분 동안 관측한 모든 commit이 그 주기에서 1초 이내에 있었다.
+Write가 도착한 시점은 다음 commit까지 얼마나 기다릴지만 결정했다.
 
 Commit 뒤 Lightning에는 3–7초가 더 걸렸다. 이 실험은 문서의 100 ms 목표가 시작되는 내부 데이터 도착 시점을 볼 수 없지만, transactional Flink output의 broker commit visibility와 Lightning query visibility 사이에 3–7초가 있었다는 것은 보여 준다.
 

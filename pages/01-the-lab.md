@@ -77,14 +77,14 @@ A header comment such as `-- lab:mode=snapshot` makes a file run as a snapshot (
 I used the Confluent CLI in one place, where neither of those works.
 Terraform has no `MCP_SERVER` connection type yet, so the agent's MCP connection comes from `confluent flink connection create`.
 
-137 offline unit tests cover the SQL files, the clients, secret handling, and the benchmark tooling, and run on every change without touching the cloud.
+150 offline unit tests cover the SQL files, the clients, secret handling, and the benchmark tooling, and run on every change without touching the cloud.
 Six live tests, one per capability, check the quick start's expected results against the real deployment and take about three minutes.
 
 I changed two things from the quick start:
 
 | Quick start | This lab | Why |
 |---|---|---|
-| Standard cluster | Basic cluster | Every feature used here runs on Basic, and Basic's first eCKU is free; Standard starts at $0.75 per eCKU-hour |
+| Standard cluster | Basic cluster | Every feature used here runs on Basic. The pricing page lists its first eCKU as free, though this lab was still billed for eCKUs ([part 7](07-is-a-streamhouse-worth-it.md#what-the-lab-cost)); Standard starts at $0.75 per eCKU-hour |
 | Global API key for your own user | Global API key for a dedicated service account, created by Terraform | Keeps the user's two Global key slots free and puts the key's lifecycle in code |
 
 The second change led to the most interesting problem of the project, which is the subject of [part 2](02-basic-clusters-and-read-only-agents.md).
@@ -112,14 +112,14 @@ All six capabilities matched the quick start, including the agent's output.
 
 ## What it costs
 
-An idle platform costs almost nothing.
-A Basic cluster with no traffic, a compute pool with no statements, and Schema Registry Essentials are not billed.
+A compute pool with no statements and Schema Registry Essentials are not billed, and a Basic cluster costs nothing only while it has no topics.
 You pay for what runs:
 
 - A materialized table is a continuous statement and uses at least one Flink CFU for as long as it exists.
-  An earlier invoice of mine charged $0.2562 per CFU-hour in Seoul (I haven't checked the `us-east-1` rate), which works out to about $6 a day.
+  This lab's invoice charged $0.21 per CFU-hour in `us-east-1`, about $5 a day.
 - A Tableflow topic is billed by the hour while it's enabled, even when no new data arrives.
 - Lightning Tables always bill for storage, and bill for compute only while data arrives or queries run.
 - The agent bills for model inference on each run.
 
 Since everything is in code, I tore the lab down between sessions, which is the cheapest way to run it.
+The two sessions behind this series cost $3.59 in total, and [part 7](07-is-a-streamhouse-worth-it.md#what-the-lab-cost) breaks the invoice down.

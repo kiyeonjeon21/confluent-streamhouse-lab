@@ -118,7 +118,7 @@ alternate_url: /ko/
     <p class="section-label">Method</p>
     <h2 id="method-title">How the lab is built</h2>
   </div>
-  <p>The lab uses Terraform, version-controlled SQL, separate benchmark tables, 137 offline unit tests, and six live tests that check each capability against a real deployment. Every measured chapter states its sample size and what the run could not prove. The environment was torn down between sessions and rebuilt from code.</p>
+  <p>The lab uses Terraform, version-controlled SQL, separate benchmark tables, 150 offline unit tests, and six live tests that check each capability against a real deployment. Every measured chapter states its sample size and what the run could not prove. The environment was torn down between sessions and rebuilt from code.</p>
   {%- if site.repository_public %}
   <a href="{{ site.repository_url }}">Inspect the repository <span aria-hidden="true">→</span></a>
   {%- else %}

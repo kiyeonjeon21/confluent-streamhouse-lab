@@ -83,7 +83,7 @@ The options are these:
 
 | Option | Credential privilege | Cluster requirement or trade-off |
 |---|---|---|
-| Basic + `CloudClusterAdmin` for the reader | The MCP tools are read-only, but a leaked key could administer the cluster | The first eCKU is included |
+| Basic + `CloudClusterAdmin` for the reader | The MCP tools are read-only, but a leaked key could administer the cluster | Pricing lists the first eCKU as free, but this lab was billed $0.135 per eCKU-hour ([part 7](07-is-a-streamhouse-worth-it.md#what-the-lab-cost)) |
 | Standard + `DeveloperRead` | Read-only, as documented | From $0.75 per eCKU-hour, about $18 a day |
 | Your own user's Global key, as in the quick start | Everything your user can do | No cluster-price change; uses one of only two Global keys per user |
 

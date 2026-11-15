@@ -45,4 +45,4 @@ permalink: /ko/
   {% include chapter-grid.html %}
 </section>
 
-<section class="method-note" aria-labelledby="ko-method-title"><div><p class="section-label">방법</p><h2 id="ko-method-title">재현하고 검증할 수 있는 실험</h2></div><p>Terraform, Git으로 관리하는 SQL, 약 140개의 자동화 테스트, 별도 benchmark table을 사용했다. 측정 챕터에는 샘플 수와 실험이 증명하지 못한 범위를 함께 기록했다.</p><a href="{{ site.repository_url }}">저장소 보기 <span aria-hidden="true">→</span></a></section>
+<section class="method-note" aria-labelledby="ko-method-title"><div><p class="section-label">방법</p><h2 id="ko-method-title">재현하고 검증할 수 있는 실험</h2></div><p>Terraform, Git으로 관리하는 SQL, 오프라인 unit test 150개와 live test 6개, 별도 benchmark table을 사용했다. 측정 챕터에는 샘플 수와 실험이 증명하지 못한 범위를 함께 기록했다.</p><a href="{{ site.repository_url }}">저장소 보기 <span aria-hidden="true">→</span></a></section>

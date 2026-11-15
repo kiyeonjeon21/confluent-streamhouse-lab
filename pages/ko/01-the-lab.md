@@ -77,14 +77,14 @@ Flink 객체는 파일 하나에 statement 하나씩 SQL로 저장한다. 작은
 Terraform과 API로 처리할 수 없는 한 곳에서는 Confluent CLI를 사용했다.
 Terraform에는 아직 `MCP_SERVER` connection type이 없으므로 에이전트의 MCP connection은 `confluent flink connection create`로 만든다.
 
-오프라인 unit test 137개가 SQL 파일, 클라이언트, secret 처리, 벤치마크 도구를 검사한다. 클라우드에 연결하지 않고 모든 변경에서 실행된다.
+오프라인 unit test 150개가 SQL 파일, 클라이언트, secret 처리, 벤치마크 도구를 검사한다. 클라우드에 연결하지 않고 모든 변경에서 실행된다.
 기능별 live test 여섯 개는 실제 배포에서 quick start의 예상 결과를 확인하며 약 3분이 걸린다.
 
 Quick start에서 두 가지를 변경했다.
 
 | Quick start | 이 실험 | 이유 |
 |---|---|---|
-| Standard cluster | Basic cluster | 여기서 사용한 모든 기능이 Basic에서 동작하고 첫 eCKU가 무료다. Standard는 eCKU-hour당 $0.75부터 시작한다. |
+| Standard cluster | Basic cluster | 여기서 사용한 모든 기능이 Basic에서 동작한다. 가격 페이지에는 첫 eCKU가 무료라고 되어 있지만 이 실험에서는 eCKU 요금이 청구됐다([Chapter 7](07-is-a-streamhouse-worth-it.md#what-the-lab-cost)). Standard는 eCKU-hour당 $0.75부터 시작한다. |
 | 사용자 자신의 Global API key | Terraform이 생성한 전용 서비스 계정의 Global API key | 사용자에게 허용된 Global key 두 개를 비워 두고 키 수명 주기를 코드로 관리한다. |
 
 두 번째 변경에서 이 프로젝트의 가장 흥미로운 문제가 생겼다. 자세한 내용은 [Chapter 2](02-basic-clusters-and-read-only-agents.md)에 있다.
@@ -112,13 +112,13 @@ Quick start에서 두 가지를 변경했다.
 
 ## 비용 구조
 
-유휴 플랫폼의 비용은 거의 없다.
-트래픽이 없는 Basic cluster, statement가 없는 compute pool, Schema Registry Essentials에는 요금이 부과되지 않는다.
+Statement가 없는 compute pool과 Schema Registry Essentials에는 요금이 부과되지 않고, Basic cluster는 topic이 없을 때만 비용이 0이다.
 실행 중인 항목에 비용이 발생한다.
 
-- Materialized Table은 continuous statement이므로 존재하는 동안 최소 Flink CFU 하나를 사용한다. 과거 서울 리전 청구서에서는 CFU-hour당 $0.2562였으며 하루 약 $6다. `us-east-1` 요금은 확인하지 않았다.
+- Materialized Table은 continuous statement이므로 존재하는 동안 최소 Flink CFU 하나를 사용한다. 이 실험의 `us-east-1` 청구서에서는 CFU-hour당 $0.21였으며 하루 약 $5다.
 - Tableflow topic은 새 데이터가 없어도 활성화된 시간만큼 과금된다.
 - Lightning Tables는 저장 공간에 항상 과금하고, 데이터가 들어오거나 쿼리가 실행될 때만 compute 비용을 부과한다.
 - 에이전트는 실행할 때마다 model inference 비용이 발생한다.
 
 모든 구성이 코드에 있으므로 작업 세션 사이에는 실험 환경을 철거했다. 이 실험을 가장 저렴하게 운영하는 방법이었다.
+이 시리즈의 두 실험 세션 비용은 모두 합쳐 $3.59였고, 자세한 내역은 [Chapter 7](07-is-a-streamhouse-worth-it.md#what-the-lab-cost)에 있다.
