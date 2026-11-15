@@ -3,10 +3,11 @@
 -- connecting flight. In upsert mode Flink emits no delete for keys the new query stops
 -- producing, so the documented expectation is that those rows stay downstream ("zombie"
 -- keys): docs.confluent.io/cloud/current/flink/concepts/materialized-tables.html
+-- There is no DISTRIBUTED BY clause: repeating the original one, unchanged, failed on
+-- 2026-11-15 with "Changing distribution of materialized table is not supported."
 CREATE OR ALTER MATERIALIZED TABLE bench_passenger_state (
   PRIMARY KEY (passenger_id) NOT ENFORCED
 )
-DISTRIBUTED BY (passenger_id) INTO 1 BUCKETS
 WITH ('changelog.mode' = 'upsert')
 AS SELECT
   p.passenger_id,

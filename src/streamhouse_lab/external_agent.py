@@ -27,6 +27,11 @@ from streamhouse_lab.context import reader_key
 MODEL = "claude-sonnet-4-6"  # the model rebooking_model uses (sql/06-agent/01-create-rebooking-model.sql)
 SERVER = "rtce"
 TOOLS = (f"mcp__{SERVER}__queryData", f"mcp__{SERVER}__getMetadata")
+# The engine also serves listTopics, which the in-Flink tool leaves out ('allowed_tools').
+# Merely not allowing it is not enough: Claude Code still shows it to the model, denies the
+# call, and then stops to ask for permission (3 of 20 runs on 2026-11-15). Disallowing it
+# removes it from the model's tool list, so both agents see the same two tools.
+HIDDEN_TOOLS = (f"mcp__{SERVER}__listTopics",)
 AUTH_ENV = "LAB_RTCE_AUTHORIZATION"
 AGENT_SQL = SQL_DIR / "06-agent" / "03-create-rebooking-agent.sql"
 PROMPT_RE = re.compile(r"USING PROMPT '((?:[^']|'')*)'", re.S)
@@ -69,6 +74,8 @@ def command(config_path: Path, prompt: str, task: str = TASK, model: str = MODEL
         str(config_path),
         "--allowedTools",
         ",".join(TOOLS),
+        "--disallowedTools",
+        ",".join(HIDDEN_TOOLS),
         "--setting-sources",
         "project",
         "--output-format",
@@ -84,7 +91,8 @@ def parse_stream(lines: Iterable[str]) -> AgentRun:
 
     Tool calls are counted from tool_use blocks in assistant messages; the final
     `result` event carries the answer, turns, duration, and cost."""
-    tool_calls, result = 0, None
+    tool_names: list[str] = []
+    result = None
     for line in lines:
         line = line.strip()
         if not line:
@@ -95,15 +103,18 @@ def parse_stream(lines: Iterable[str]) -> AgentRun:
             continue
         if event.get("type") == "assistant":
             content = (event.get("message") or {}).get("content") or []
-            tool_calls += sum(1 for block in content if block.get("type") == "tool_use")
+            tool_names += [str(block.get("name")) for block in content if block.get("type") == "tool_use"]
         elif event.get("type") == "result":
             result = event
     if result is None:
-        return AgentRun(responses=[], elapsed_ms=0.0, tool_calls=tool_calls, error="NO_RESULT")
+        return AgentRun(
+            responses=[], elapsed_ms=0.0, tool_calls=len(tool_names), tool_names=tool_names, error="NO_RESULT"
+        )
     return AgentRun(
         responses=[result.get("result") or ""],
         elapsed_ms=float(result.get("duration_ms") or 0.0),
-        tool_calls=tool_calls,
+        tool_calls=len(tool_names),
+        tool_names=tool_names,
         turns=result.get("num_turns"),
         cost_usd=result.get("total_cost_usd"),
         error=(result.get("subtype") if result.get("is_error") else None),

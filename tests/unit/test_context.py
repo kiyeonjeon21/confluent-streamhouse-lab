@@ -39,3 +39,20 @@ def test_decode_parses_json_text_and_errors() -> None:
 def test_decode_keeps_plain_text() -> None:
     result = SimpleNamespace(content=[SimpleNamespace(text="not json")], is_error=False)
     assert decode_content(result) == (False, "not json")
+
+
+def test_a_json_rpc_error_becomes_an_error_result() -> None:
+    import asyncio
+
+    from mcp.shared.exceptions import MCPError
+
+    from streamhouse_lab.context import Session, error_code
+
+    class Client:
+        async def call_tool(self, tool, arguments):
+            raise MCPError(code=-32603, message="Server returned an error response", data={"retry": True})
+
+    call = asyncio.run(Session(Client()).query("t", "SELECT 1", 1))
+    assert call.is_error
+    assert error_code(call.payload) == "MCP_-32603"
+    assert "retry" in call.payload["error"]["message"]

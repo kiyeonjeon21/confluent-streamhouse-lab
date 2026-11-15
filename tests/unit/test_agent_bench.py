@@ -180,6 +180,7 @@ def test_command_allows_only_the_two_context_tools(tmp_path: Path) -> None:
     assert argv[argv.index("--tools") + 1] == ""
     assert argv[argv.index("--allowedTools") + 1] == "mcp__rtce__queryData,mcp__rtce__getMetadata"
     assert argv[argv.index("--model") + 1] == "claude-sonnet-4-6"
+    assert argv[argv.index("--disallowedTools") + 1] == "mcp__rtce__listTopics"
     assert "--strict-mcp-config" in argv
     assert argv[argv.index("-p") + 1] == external_agent.TASK
 
@@ -209,6 +210,7 @@ def test_parse_stream_counts_tool_calls_and_reads_the_result() -> None:
     ]
     run = external_agent.parse_stream(lines)
     assert run.tool_calls == 3
+    assert run.tool_names == ["q", "None", "None"]
     assert run.responses == [bench.AGENT_AFTER]
     assert (run.turns, run.cost_usd, run.error) == (4, 0.031, None)
 

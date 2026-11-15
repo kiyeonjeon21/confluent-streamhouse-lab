@@ -406,6 +406,7 @@ class AgentRun:
     elapsed_ms: float
     run_id: str | None = None  # the Flink statement name, which keys the agent's system log
     tool_calls: int | None = None
+    tool_names: list[str] | None = None
     turns: int | None = None
     cost_usd: float | None = None
     error: str | None = None
@@ -457,6 +458,7 @@ def describe_run(run: AgentRun) -> dict:
         "offers": [offer_line(r) for r in run.responses],
         "responses": [(r or "")[:600] for r in run.responses],
         "tool_calls": run.tool_calls,
+        "tool_names": run.tool_names,
         "turns": run.turns,
         "cost_usd": run.cost_usd,
         "error": run.error,

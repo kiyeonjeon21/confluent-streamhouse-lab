@@ -17,6 +17,7 @@ from typing import Any
 
 from mcp import Client
 from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
+from mcp.shared.exceptions import MCPError
 
 from streamhouse_lab.config import ConfigError, LabConfig
 from streamhouse_lab.redact import ApiKey
@@ -72,7 +73,15 @@ class Session:
 
     async def call(self, tool: str, arguments: dict[str, Any]) -> ToolCall:
         start = time.perf_counter()
-        raw = await self._client.call_tool(tool, arguments)
+        try:
+            raw = await self._client.call_tool(tool, arguments)
+        except MCPError as exc:
+            # A JSON-RPC error instead of a tool result. Under load the engine answers this way
+            # (observed 2026-11-15 at about 160 requests/s from us-east-1), so record it as data.
+            elapsed = (time.perf_counter() - start) * 1000
+            detail = f"{exc} {exc.data}" if exc.data is not None else str(exc)
+            payload = {"status": "error", "error": {"code": f"MCP_{exc.code}", "message": detail[:300]}}
+            return ToolCall(tool, arguments, True, payload, elapsed)
         elapsed = (time.perf_counter() - start) * 1000
         is_error, payload = decode_content(raw)
         return ToolCall(tool, arguments, is_error, payload, elapsed)

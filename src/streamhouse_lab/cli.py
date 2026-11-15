@@ -303,7 +303,7 @@ async def run_agent_experiment(cfg: config.LabConfig, engine: ContextEngine, rec
         )
 
     with FlinkClient(cfg) as events_client, FlinkClient(cfg) as agent_client:
-        agents = {"flink": lambda: flink_agent(agent_client)}
+        agents = {} if args.external_only else {"flink": lambda: flink_agent(agent_client)}
         if args.external == "claude-code":
             agents["claude_code"] = lambda: external_agent.run(cfg)
         steps = bench.AgentSteps(
@@ -316,10 +316,11 @@ async def run_agent_experiment(cfg: config.LabConfig, engine: ContextEngine, rec
                 session, steps, recorder,
                 offsets=[float(x) for x in args.offsets.split(",")], repeats=args.rounds, seed=args.seed,
             )  # fmt: skip
-        # Tool and model calls per run, from the agent's system log (one snapshot query).
-        name = sqlfiles.statement_name("check", "e5-log", str(int(time.time())))
-        rows = agent_client.query(name, log_counts.statement).records()
-        recorder.event("agent_log", rows=rows)
+        if not args.external_only:
+            # Tool and model calls per run, from the agent's system log (one snapshot query).
+            name = sqlfiles.statement_name("check", "e5-log", str(int(time.time())))
+            rows = agent_client.query(name, log_counts.statement).records()
+            recorder.event("agent_log", rows=rows)
 
 
 def run_failure_experiment(
@@ -631,6 +632,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--offsets", default="0,5,15,30", help="e5: seconds between the change and the agents")
     p.add_argument("--rounds", type=int, default=5, help="e5: cycles per offset")
+    p.add_argument("--external-only", action="store_true", help="e5: run only the external client")
     p.add_argument(
         "--external",
         choices=["claude-code", "none"],
