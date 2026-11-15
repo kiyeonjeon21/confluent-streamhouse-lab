@@ -77,7 +77,7 @@ Flink 객체는 파일 하나에 statement 하나씩 SQL로 저장한다. 작은
 Terraform과 API로 처리할 수 없는 한 곳에서는 Confluent CLI를 사용했다.
 Terraform에는 아직 `MCP_SERVER` connection type이 없으므로 에이전트의 MCP connection은 `confluent flink connection create`로 만든다.
 
-오프라인 unit test 150개가 SQL 파일, 클라이언트, secret 처리, 벤치마크 도구를 검사한다. 클라우드에 연결하지 않고 모든 변경에서 실행된다.
+오프라인 unit test 190개가 SQL 파일, 클라이언트, secret 처리, 벤치마크 도구를 검사한다. 클라우드에 연결하지 않고 모든 변경에서 실행된다.
 기능별 live test 여섯 개는 실제 배포에서 quick start의 예상 결과를 확인하며 약 3분이 걸린다.
 
 Quick start에서 두 가지를 변경했다.

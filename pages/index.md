@@ -22,8 +22,8 @@ alternate_url: /ko/
     <dl>
       <div><dt>Environment</dt><dd>AWS <code>us-east-1</code></dd></div>
       <div><dt>Cluster</dt><dd>Confluent Basic</dd></div>
-      <div><dt>Benchmark data</dt><dd>10,000 passengers</dd></div>
-      <div><dt>Client</dt><dd>Seoul · ~190 ms away</dd></div>
+      <div><dt>Benchmark data</dt><dd>10,000 and 100,000 passengers</dd></div>
+      <div><dt>Clients</dt><dd>Seoul · ~190 ms away, and EC2 in us-east-1</dd></div>
       <div><dt>Run date</dt><dd>November 15, 2026</dd></div>
     </dl>
   </aside>
@@ -36,7 +36,7 @@ alternate_url: /ko/
       <p class="section-label">Measurements</p>
       <h2 id="measured-title">What I measured</h2>
     </div>
-    <p>The first three figures come from the benchmarks in Chapter 6 and the Iceberg timing from Chapter 4. All of them describe one configuration: a Basic cluster in <code>us-east-1</code>, measured from Seoul. The chapters include the method, sample size, raw distributions, and limitations.</p>
+    <p>The first three figures come from the benchmarks in Chapter 6 and the Iceberg timing from Chapter 4. All of them describe one configuration, a Basic cluster in <code>us-east-1</code>, measured from Seoul and from inside the region. The chapters include the method, sample size, raw distributions, and limitations.</p>
   </div>
   <div class="metric-grid">
     <article class="metric-card metric-card--primary">
@@ -45,14 +45,14 @@ alternate_url: /ko/
       <p>Broker acknowledgement to a derived row becoming visible in Lightning Tables, 30 samples.</p>
     </article>
     <article class="metric-card">
-      <span class="metric-card__value">3–7<span>s</span></span>
-      <strong>Commit to Lightning visibility</strong>
-      <p>The observed range between broker commit visibility and the first successful Lightning query.</p>
+      <span class="metric-card__value">5.5<span>s</span></span>
+      <strong>Lightning ingest, p50</strong>
+      <p>A plain Kafka write to visible in its Lightning Table, measured from inside the region. The documentation says 100 ms.</p>
     </article>
     <article class="metric-card">
-      <span class="metric-card__value">40.6<span>req/s</span></span>
-      <strong>At 32 concurrent clients</strong>
-      <p>Point lookups over MCP for 30 seconds, with no request or rate-limit errors.</p>
+      <span class="metric-card__value">~160<span>req/s</span></span>
+      <strong>Point lookups before errors</strong>
+      <p>From inside the region, at 34 ms p50 per lookup on 100,000 rows; past this, latency doubled and errors began.</p>
     </article>
     <article class="metric-card">
       <span class="metric-card__value">4.5<span>min</span></span>
@@ -87,7 +87,8 @@ alternate_url: /ko/
       <ul>
         <li>All six capabilities matched the quick start's expected result.</li>
         <li>A Flink snapshot query combined Iceberg-only history with Kafka-only new rows.</li>
-        <li>The managed agent returned the correct flights and hotel on its first run.</li>
+        <li>After twenty flight changes, the managed agent answered from the new data every time, as did Claude Code on the same model and tools.</li>
+        <li>Stopping and resuming the materialized table lost no data.</li>
       </ul>
     </article>
     <article>
@@ -95,8 +96,9 @@ alternate_url: /ko/
       <h3>Watch out for</h3>
       <ul>
         <li>Derived state arrived in tens of seconds, because exactly-once output commits about once a minute.</li>
+        <li>When the pipeline stopped or failed, Lightning kept serving stale data with no sign of it.</li>
+        <li>Point lookups scan the table: 8 to 11 MB each at 100,000 rows.</li>
         <li>A Basic cluster could not give the MCP reader least privilege.</li>
-        <li>The official materialized-table query raised two CRITICAL warnings.</li>
       </ul>
     </article>
   </div>
@@ -118,7 +120,7 @@ alternate_url: /ko/
     <p class="section-label">Method</p>
     <h2 id="method-title">How the lab is built</h2>
   </div>
-  <p>The lab uses Terraform, version-controlled SQL, separate benchmark tables, 150 offline unit tests, and six live tests that check each capability against a real deployment. Every measured chapter states its sample size and what the run could not prove. The environment was torn down between sessions and rebuilt from code.</p>
+  <p>The lab uses Terraform, version-controlled SQL, separate benchmark tables, 190 offline unit tests, and six live tests that check each capability against a real deployment. Every measured chapter states its sample size and what the run could not prove. The environment was torn down between sessions and rebuilt from code.</p>
   {%- if site.repository_public %}
   <a href="{{ site.repository_url }}">Inspect the repository <span aria-hidden="true">→</span></a>
   {%- else %}

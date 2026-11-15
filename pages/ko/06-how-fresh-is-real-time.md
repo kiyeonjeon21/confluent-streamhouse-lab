@@ -1,20 +1,20 @@
 ---
 title: “실시간”은 얼마나 최신인가?
-description: Kafka 쓰기부터 Lightning 읽기까지의 freshness, 쿼리 형태별 latency와 concurrency, 첫 결과를 왜곡한 벤치마크 오류를 측정했다.
+description: Kafka 쓰기부터 Lightning 읽기까지의 freshness, query latency, scan 비용, throughput을 서울과 us-east-1 내부에서 측정했고, 첫 결과를 왜곡한 벤치마크 오류도 다룬다.
 date: 2026-11-15
 part: 6
 lang: ko
 alternate_url: /06-how-fresh-is-real-time.html
 translation_key: chapter-06
-reading_time: 11
-sample: Freshness 샘플 30개
+reading_time: 15
+sample: 실행당 freshness 샘플 30개, 두 리전
 takeaways:
   - label: 관측 결과
-    text: Derived state는 p50 44.3초, 최대 68.2초 뒤에 보였다. 동시 클라이언트 32개에서는 오류 없이 40.6 req/s에 도달했다.
+    text: Derived state는 서울의 10,000행과 us-east-1 내부의 100,000행 모두에서 p50 43–46초, 최대 68초 뒤에 보였다. 리전 내부에서 일반 write는 5.5초 만에 Lightning에 반영됐고 query는 34 ms가 걸렸다.
   - label: 해석
-    text: Flink는 p50 2.6초에 출력을 기록했지만 약 1분마다 수행되는 exactly-once 커밋 때문에 38.5초까지 보류됐다.
+    text: 약 1분마다 수행되는 Flink exactly-once 커밋이 지연의 대부분을 정하고, Lightning이 문서의 100 ms가 아닌 약 5초를 더한다. Point lookup은 table을 scan하므로 table이 커지면 비용도 커진다.
   - label: 한계
-    text: 기본 exactly-once delivery, 10,000행, 서울 클라이언트라는 한 구성의 결과다. In-region latency, service-side saturation, scan scaling은 분리하지 못했다.
+    text: 기본 exactly-once delivery, Materialized Table 하나, 생성한 데이터, 단일 프로세스 클라이언트의 결과다. at-least-once delivery와 100,000행보다 큰 table은 시험하지 않았다.
 ---
 
 [Lightning Tables 문서](https://docs.confluent.io/cloud/current/lightning-tables/overview.html)는 새 데이터가 토픽에 도착하면 100 ms 안에 table이 갱신된다고 설명한다. 이 수치는 serving layer만 포함한다.
@@ -115,16 +115,60 @@ Write가 도착한 시점은 다음 commit까지 얼마나 기다릴지만 결�
 
 Commit 뒤 Lightning에는 3–7초가 더 걸렸다. 이 실험은 문서의 100 ms 목표가 시작되는 내부 데이터 도착 시점을 볼 수 없지만, transactional Flink output의 broker commit visibility와 Lightning query visibility 사이에 3–7초가 있었다는 것은 보여 준다.
 
-따라서 첫 실험 E1의 “고정 17초”는 write 후 약 11초에 이뤄진 가장 빠른 commit과 Lightning의 약 5초를 합한 값이다.
-두 실행의 전체 결과도 중앙값 44.3초와 46.1초로 일치한다.
+따라서 첫 실험 E1의 최솟값 17초는 그 샘플들 가운데 가장 빠른 commit(write 후 약 11초)과 Lightning의 약 5초를 합한 값이다.
+다만 고정값은 아니었다.
+이후 리전 내부에서 100,000행으로 실행했을 때 가장 빠른 샘플은 7.1초였다. commit 직전에 들어간 write였다.
+여기의 두 실행은 전체 결과도 중앙값 44.3초와 46.1초로 일치한다.
 
 **관측 결과.** Source 변경은 18–68초, 평균 약 42초 뒤에 Lightning의 derived state로 나타났다. p50은 output write 2.6초, commit 38.5초, Lightning visibility 44.3초였다.
 
 **설명된 부분.** 지연 대부분은 문서에 명시된 약 1분 간격의 exactly-once commit 대기다. `read_committed` consumer가 이를 직접 측정했으므로 join이나 serving query를 조정해도 줄어들지 않는다. 문서에는 commit interval 설정이 없고, Confluent가 지연을 줄이는 작업을 하고 있으며 더 짧은 지연이 필요하면 support에 문의하라고 안내한다.
 
-**설명되지 않은 부분.** Commit과 Lightning visibility 사이 3–7초가 어디에서 발생하는지는 알 수 없다. 문서의 100 ms는 데이터가 토픽에 도착할 때 시작하지만 Confluent가 transactional output의 도착을 어느 시점으로 판단하는지는 이 실험에서 볼 수 없다.
+**이 실험으로 설명되지 않은 부분.** Commit과 Lightning visibility 사이 3–7초가 어디에서 발생하는지는 알 수 없다. 문서의 100 ms는 데이터가 토픽에 도착할 때 시작하지만 Confluent가 transactional output의 도착을 어느 시점으로 판단하는지는 이 실험에서 볼 수 없다. 아래의 리전 내부 실행에서 일반 write로 Lightning을 측정했다.
 
-**한계.** 서울 클라이언트에서 실행한 한 구성과 실행당 샘플 30개의 결과다. at-least-once delivery, Flink statement가 여러 개인 pipeline, 리전 내부 클라이언트는 시험하지 않았다.
+**한계.** 서울 클라이언트에서 실행한 한 구성과 실행당 샘플 30개의 결과다. at-least-once delivery와 Flink statement가 여러 개인 pipeline은 시험하지 않았다.
+
+## Lightning 자체의 5초
+
+Flink를 경로에서 빼기 위해, Lightning Table이 따로 있는 source topic `bench_flight_status`에 쓰고 그 table을 조회했다.
+transaction을 기다릴 일이 없는 일반 Kafka write다.
+클라이언트는 `us-east-1`의 EC2 instance에서 실행했고 query가 56–118 ms였으므로 각 샘플의 경계 차이는 약 0.4초다.
+
+샘플 30개 모두 broker 승인 후 5.1–5.8초 사이에 보였다(p50 5.5초).
+5.07초보다 일찍 보인 샘플은 없었다.
+
+이 topic에서 Lightning의 반영에는 문서의 100 ms가 아니라 매번 약 5초가 걸렸다.
+위에서 서울로부터 더 낮은 해상도로 잰 commit 후 3–7초도 같은 현상이다.
+이것이 cluster type, table, region 중 무엇에 따라 달라지는지는 모른다. 각각 하나씩만 측정했다.
+
+## 리전 내부에서, 100,000행으로
+
+10배 큰 table로 freshness, latency, throughput 실행을 서울과 EC2 instance에서 반복했다.
+생성한 데이터는 예측대로 정확히 들어갔다. OK 63,712, AT_RISK 21,264, NO_CONNECTION 15,024.
+
+**Freshness는 그대로였다.**
+리전 내부 100,000행에서 p50 42.8초, p95 66.7초, 최대 67.4초로, 서울 10,000행의 p50 46.1초, 최대 67.6초와 같았다.
+table 크기나 클라이언트 거리가 아니라 commit 주기가 freshness를 정한다.
+
+**Latency는 대부분 거리였다.**
+
+| 클라이언트 | 단건 조회 p50 | 동등 조건 filter p50 | 범위 filter p50 | 단건 조회 p99 |
+|---|---|---|---|---|
+| 서울 | 679 ms | 687 ms | 672 ms | 1,080 ms |
+| us-east-1 | 34 ms | 34 ms | 37 ms | 64 ms |
+
+행이 10배가 돼도 서울의 수치는 변하지 않았고, 리전 내부에서 engine은 약 34 ms 만에 답했다.
+서울에서의 나머지 640 ms는 network와 MCP transport다. 호출마다 약 190 ms의 왕복을 여러 번 쓴다.
+
+**Throughput에는 상한이 있다.**
+리전 내부에서 클라이언트 하나는 초당 28.6회, 여덟 개는 160.3회를 조회했고 중앙값은 34 ms에서 47 ms로 늘었다.
+열여섯 개는 처리량을 4%만 늘렸고, 중앙값은 94 ms로 두 배가 됐으며, 요청 5,009개 중 136개가 JSON-RPC 오류(code -32603)를 받아 실행이 그 단계에서 멈췄다.
+이 engine과 table에서는 초당 약 160회의 point lookup이 한계였다.
+
+**Lookup은 table을 scan한다.**
+Metrics API는 table별 `dp_scanned_bytes`를 제공하므로, 한 실행만 들어 있는 시간 구간에서 이를 query 수로 나눴다.
+100,000행에서 primary key로 하는 point lookup 한 번이 8–11 MB를 scan했고, 10,000행에서는 약 1.4 MB였다. scan은 결과가 아니라 table 크기를 따라 커진다.
+리전 내부에서 lookup 10,140회에 58 CCU-minute를 썼다. CCU-hour당 $0.105로 lookup 1,000회에 약 $0.01, 초당 160회라면 시간당 약 $6이다.
 
 ## 쿼리 형태별 latency
 
@@ -164,7 +208,7 @@ WHERE CONNECTION_MINUTES BETWEEN 45 AND 90 LIMIT 200
 
 **해석.** 10,000행에서는 세 query 형태의 차이보다 호출 자체의 비용이 컸다.
 
-**한계.** 190 ms network round trip을 제외해도 약 500 ms가 남지만 MCP overhead와 Lightning engine 시간을 분리할 수 없다.
+**한계.** 서울에서의 이 실행으로는 MCP overhead와 engine 시간을 분리할 수 없었다. 위의 리전 내부 실행에서 분리했고 engine은 약 34 ms였다.
 
 ### 쿼리가 스캔한 데이터
 
@@ -178,12 +222,12 @@ WHERE CONNECTION_MINUTES BETWEEN 45 AND 90 LIMIT 200
 
 **관측 결과.** 7.96 GB를 5,830으로 나누면 10,000행 table에서 query당 약 1.4 MB다. 대부분 primary key 단건 조회였다.
 
-**가설.** 각 query가 key 하나로 바로 이동하지 않고 table의 대부분 또는 전체를 읽는 결과와 일치한다.
+**가설, 100,000행에서 확인됨.** 각 query가 key 하나로 바로 이동하지 않고 table의 대부분 또는 전체를 읽는 결과와 일치한다. 행이 10배일 때 Metrics API는 lookup당 8–11 MB를 보였다(위 참조).
 
-**한계.** 콘솔에는 table size가 0 B로 표시되고 Confluent는 lookup의 scan 방식을 문서화하지 않아 이 수치만으로 가설을 확인할 수 없다.
+**한계.** 콘솔과 `storage_bytes` metric 모두 table size를 0으로 표시하고 Confluent는 lookup의 scan 방식을 문서화하지 않았다. 그래서 scan은 서로 비교할 수만 있고 table 크기와 비교할 수는 없다.
 
 사실이라면 비용에 영향을 준다. Lightning compute는 CCU로 과금되며 [CCU 하나는 시간당 최대 80 GB scan을 포함한다](https://docs.confluent.io/cloud/current/ai/real-time-context-engine/billing.html). 여러 meter 가운데 가장 높은 것을 기준으로 과금한다.
-이 규모에서는 한 시간 동안 약 8 GB라 저렴했다. Table이 10배 커졌을 때 scanned bytes도 함께 증가한다면 E4의 초당 40회 lookup은 시간당 약 2 TB를 스캔한다. 아직 측정하지 않았고 다음 실험은 100,000행이다.
+이 규모에서는 한 시간 동안 약 8 GB라 저렴했다. Table이 10배 커졌을 때 scanned bytes도 함께 증가한다면 E4의 초당 40회 lookup은 시간당 약 2 TB를 스캔한다. 100,000행에서 실제로 증가했다. 초당 40회에 회당 8–11 MB면 시간당 1.2–1.6 TB다.
 
 ### Lightning SQL이 허용하는 연산
 
@@ -219,11 +263,11 @@ Closed loop 방식이다. N개 worker가 각자의 MCP session을 사용하며 �
 
 **해석.** 클라이언트 32개의 결과는 선형 확장 시 예상되는 약 46 req/s보다 낮았다. 연결 양쪽 중 어느 한쪽에서 병목이 시작된 신호일 수 있다.
 
-**한계.** 워커 32개가 서울 laptop의 한 Python 프로세스를 공유했다. 여러 프로세스 또는 리전 내부 클라이언트로 확인하기 전에는 서비스의 문제라고 단정할 수 없다.
+**한계.** 워커 32개가 서울 laptop의 한 Python 프로세스를 공유했다. 리전 내부에서 상한은 초당 약 160회였으므로, 서울에서 초당 40회에 머문 원인은 클라이언트 쪽일 가능성이 더 크다.
 
 ## 다시 실행한다면 바꿀 점
 
-Client를 리전 내부에서 실행하겠다. 서울에서는 약 690 ms 중 network round trip만 약 190 ms로 query 지연의 4분의 1을 넘는다.
+처음부터 Client를 리전 내부에서 실행하겠다. 서울에서는 network와 transport가 query 지연의 95%(약 690 ms 중 650 ms)를 차지해 engine의 속도와 상한을 모두 가렸다.
 
 벤치마크의 고정 지연도 의심하겠다. 무해해 보였던 지연이 샘플을 Flink commit에 맞춰 버렸고, 원인을 찾은 뒤에는 난수 간격 한 줄로 해결했다.
 

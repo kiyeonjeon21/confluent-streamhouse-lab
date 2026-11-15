@@ -23,19 +23,19 @@ permalink: /ko/
     <dl>
       <div><dt>환경</dt><dd>AWS <code>us-east-1</code></dd></div>
       <div><dt>클러스터</dt><dd>Confluent Basic</dd></div>
-      <div><dt>벤치마크 데이터</dt><dd>승객 10,000명</dd></div>
-      <div><dt>클라이언트</dt><dd>서울 · 약 190 ms</dd></div>
+      <div><dt>벤치마크 데이터</dt><dd>승객 10,000명과 100,000명</dd></div>
+      <div><dt>클라이언트</dt><dd>서울 · 약 190 ms, us-east-1의 EC2</dd></div>
       <div><dt>실행일</dt><dd>2026년 11월 15일</dd></div>
     </dl>
   </aside>
 </section>
 
 <section class="home-section home-section--metrics" aria-labelledby="ko-measured-title">
-  <div class="section-heading"><div><p class="section-label">측정 결과</p><h2 id="ko-measured-title">핵심 수치</h2></div><p>아래 수치 중 앞의 세 개는 Chapter 6, Iceberg 수치는 Chapter 4의 결과다. 모두 서울에서 <code>us-east-1</code>의 Basic 클러스터를 측정한 값이다.</p></div>
+  <div class="section-heading"><div><p class="section-label">측정 결과</p><h2 id="ko-measured-title">핵심 수치</h2></div><p>아래 수치 중 앞의 세 개는 Chapter 6, Iceberg 수치는 Chapter 4의 결과다. 모두 <code>us-east-1</code>의 Basic 클러스터를 서울과 리전 내부에서 측정한 값이다.</p></div>
   <div class="metric-grid">
     <article class="metric-card metric-card--primary"><span class="metric-card__value">44.3<span>초</span></span><strong>End-to-end freshness, p50</strong><p>Broker acknowledgement부터 derived row가 Lightning Tables에서 조회 가능해질 때까지 측정한 30개 샘플.</p></article>
-    <article class="metric-card"><span class="metric-card__value">3–7<span>초</span></span><strong>Commit-to-Lightning visibility</strong><p>Broker commit 이후 첫 쿼리가 변경을 반환하기까지 관측한 범위.</p></article>
-    <article class="metric-card"><span class="metric-card__value">40.6<span>req/s</span></span><strong>동시 클라이언트 32개</strong><p>30초간 MCP point lookup을 실행했으며 오류나 rate limit은 없었다.</p></article>
+    <article class="metric-card"><span class="metric-card__value">5.5<span>초</span></span><strong>Lightning 반영, p50</strong><p>리전 내부에서 측정한, 일반 Kafka write가 Lightning Table에서 보이기까지의 시간. 문서에는 100 ms로 나와 있다.</p></article>
+    <article class="metric-card"><span class="metric-card__value">~160<span>req/s</span></span><strong>오류 전 point lookup</strong><p>리전 내부, 100,000행, lookup당 p50 34 ms. 이보다 늘리면 지연이 두 배가 되고 오류가 생겼다.</p></article>
     <article class="metric-card"><span class="metric-card__value">4.5<span>분</span></span><strong>첫 Iceberg 데이터</strong><p>처리량이 낮은 토픽의 세 번째 스냅샷에 소스 행 6개가 모두 포함됐다.</p></article>
   </div>
 </section>
@@ -45,4 +45,4 @@ permalink: /ko/
   {% include chapter-grid.html %}
 </section>
 
-<section class="method-note" aria-labelledby="ko-method-title"><div><p class="section-label">방법</p><h2 id="ko-method-title">재현하고 검증할 수 있는 실험</h2></div><p>Terraform, Git으로 관리하는 SQL, 오프라인 unit test 150개와 live test 6개, 별도 benchmark table을 사용했다. 측정 챕터에는 샘플 수와 실험이 증명하지 못한 범위를 함께 기록했다.</p><a href="{{ site.repository_url }}">저장소 보기 <span aria-hidden="true">→</span></a></section>
+<section class="method-note" aria-labelledby="ko-method-title"><div><p class="section-label">방법</p><h2 id="ko-method-title">재현하고 검증할 수 있는 실험</h2></div><p>Terraform, Git으로 관리하는 SQL, 오프라인 unit test 190개와 live test 6개, 별도 benchmark table을 사용했다. 측정 챕터에는 샘플 수와 실험이 증명하지 못한 범위를 함께 기록했다.</p><a href="{{ site.repository_url }}">저장소 보기 <span aria-hidden="true">→</span></a></section>

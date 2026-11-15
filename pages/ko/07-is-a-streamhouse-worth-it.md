@@ -6,15 +6,15 @@ part: 7
 lang: ko
 alternate_url: /07-is-a-streamhouse-worth-it.html
 translation_key: chapter-07
-reading_time: 10
-sample: 6개 기능의 실험 증거
+reading_time: 11
+sample: 6개 기능과 E1–E6의 실험 증거
 takeaways:
   - label: 관측 결과
     text: 승객 상태를 정의한 하나의 Flink 로직이 Lightning 읽기와 에이전트에 모두 사용됐고 Tableflow는 별도 export pipeline 없이 히스토리를 보존했다.
   - label: 해석
     text: 기본 exactly-once delivery로 시험한 이 구성은 수십 초를 허용하는 운영 의사결정에 적합하다. Sub-second read-your-write나 serving layer의 분석에는 맞지 않는다.
   - label: 한계
-    text: 프로덕션 도입 전에는 현실적인 table 크기에서 scan cost를 측정하고 에이전트에 최소 권한을 줄 수 있는 클러스터를 사용해야 한다.
+    text: Point lookup은 table을 scan하므로 실제 table 크기에서 scan 비용을 시험하고, 에이전트에 최소 권한을 줄 수 있는 클러스터를 쓰고, 쿼리 변경은 재구축으로 다뤄야 한다.
 ---
 
 앞의 여섯 챕터에서는 각 구성 요소의 동작을 살펴봤다.
@@ -37,7 +37,7 @@ Streamhouse는 event stream에서 현재 상태를 한 번, 지속적으로 계�
 | Warehouse 또는 lakehouse batch | 적재된 데이터에 schedule job 실행 | 수분–수시간 | 매우 좋음 | Loader, scheduler, warehouse |
 | 직접 구축한 streaming | Stream processor가 serving database 또는 cache에 기록 | 구축한 만큼 빠름 | Lake로 보내는 별도 pipeline | 모든 component와 정합성 유지 코드 |
 | Streaming database | 한 시스템이 view를 유지하고 query에 응답 | 시스템마다 다름 | 시스템에 따라 다름 | 보통 event platform 밖의 시스템 하나 |
-| Confluent Cloud Streamhouse | Kafka topic 위의 Flink Materialized Table, Lightning Tables serving, Tableflow의 Iceberg 기록 | 이 실험에서 18–68초 | 같은 topic에서 만든 Iceberg | 대부분 configuration이며 component는 관리형 |
+| Confluent Cloud Streamhouse | Kafka topic 위의 Flink Materialized Table, Lightning Tables serving, Tableflow의 Iceberg 기록 | 이 실험에서 7–68초 | 같은 topic에서 만든 Iceberg | 대부분 configuration이며 component는 관리형 |
 
 마지막 방식에서는 모든 계층이 같은 Kafka topic을 사용한다.
 Flink가 topic에 쓰고, Lightning이 제공하며, Tableflow가 보관하고, agent가 MCP로 읽으므로 비즈니스 로직은 한 곳에 남는다.
@@ -52,12 +52,12 @@ Confluent quick start는 Streamhouse를 네 가지 solution으로 설명한다. 
 승객 상태를 정의한 하나의 Flink 로직을 Lightning과 에이전트가 함께 읽었고, bounded join도 같은 연결 시간을 계산했다. 지연 이벤트를 넣자 정의를 바꾸지 않았는데도 승객 두 명이 `AT_RISK`로 바뀌었다([Chapter 3](03-materialized-tables-in-practice.md)). Tableflow는 별도 export pipeline 없이 히스토리를 보존했다.
 
 단, 모든 reader가 같은 상태에 합의하는 시점은 약 1분 늦었다.
-Flink의 기본 exactly-once output은 [Confluent 문서](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html)에 따르면 약 1분마다 커밋되고 Lightning은 커밋 뒤 3–7초가 더 걸렸다([Chapter 6](06-how-fresh-is-real-time.md)).
+Flink의 기본 exactly-once output은 [Confluent 문서](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html)에 따르면 약 1분마다 커밋되고 Lightning은 커밋을 반영하는 데 약 5초가 더 걸렸다([Chapter 6](06-how-fresh-is-real-time.md)).
 
 ### 2. 최근 5초와 지난 5년을 함께 판단한다
 
 “초”를 수십 초로 해석하면 동작한다.
-Source write에서 derived state를 Lightning으로 읽기까지 18–68초, 평균 약 42초가 걸렸다. 운영 팀에는 실시간일 수 있지만 checkout page에는 느리다.
+Source write에서 derived state를 Lightning으로 읽기까지 7–68초, 평균 약 41초가 걸렸고, 서울의 10,000행과 리전 내부의 100,000행에서 같았다. 운영 팀에는 실시간일 수 있지만 checkout page에는 느리다.
 
 History 경로는 잘 동작했다.
 Tableflow는 약 4분 만에 Iceberg에 데이터를 기록했고 pyiceberg로 직접 읽을 수 있었다. Kafka copy를 삭제한 뒤에도 Flink snapshot query 하나가 Iceberg의 과거 행과 Kafka에만 있는 새 행을 함께 반환했다([Chapter 4](04-proving-tableflow-wrote-iceberg.md)).
@@ -67,6 +67,7 @@ Tableflow는 약 4분 만에 Iceberg에 데이터를 기록했고 pyiceberg로 �
 
 이 약속도 성립했고 가장 인상적이었다.
 관리형 Claude model의 Flink agent가 Real-Time Context Engine으로 실시간 항공편과 호텔을 조회해 첫 실행에서 정확한 재예약 제안을 반환했다([Chapter 5](05-a-streaming-agent-grounded-in-live-state.md)).
+항공편을 스무 번 바꿨을 때도 매번 새 데이터로 답했고, 같은 모델과 같은 도구 두 개를 쓴 Claude Code도 마찬가지였다.
 Model endpoint, SQL의 API key, retrieval pipeline을 따로 만들 필요가 없었다.
 
 Model은 한 줄 응답 형식을 무시했으므로 output을 방어적으로 parsing해야 한다.
@@ -79,6 +80,9 @@ Basic cluster에서는 읽기 전용 role을 쓸 수 없어 agent credential이 
 
 다만 Flink는 quick start query에 CRITICAL 경고 두 개를 표시한다. Primary key와 유도된 upsert key가 다르고 join state가 영구히 유지된다.
 승객 세 명에서는 영향이 보이지 않았지만 실제 규모에서는 설계 검토 단계에서 둘 다 해결해야 한다.
+더 큰 빈틈은 문제가 생겼을 때 드러났다.
+Table을 중지했을 때, 읽을 수 없는 레코드로 실패했을 때, `CREATE OR ALTER`로 바꿨을 때 모두 Lightning은 마지막 상태를 계속 반환하며 `ACTIVE`로 남았다([Chapter 3](03-materialized-tables-in-practice.md)).
+Derived state로 만든 monitor에는 그 뒤의 pipeline을 지켜보는 monitor가 하나 더 필요하다.
 
 ## 적합한 영역
 
@@ -93,7 +97,8 @@ Basic cluster에서는 읽기 전용 role을 쓸 수 없어 agent credential이 
 
 - 시험한 기본 exactly-once delivery에서 sub-second freshness 또는 read-your-write가 필요하다. Flink는 약 1분마다 commit하고 Lightning이 몇 초를 더하므로 방금 변경한 derived state를 바로 볼 수 없다. Confluent는 이 latency를 줄이는 작업을 하고 있다고 설명한다.
 - Serving layer에서 analytical query가 필요하다. Lightning은 MCP query당 최대 200행을 반환하고 aggregate, `GROUP BY`, join을 거부하므로 Flink 또는 Iceberg를 읽는 engine이 맡아야 한다.
-- 측정 전의 대규모 table 고빈도 lookup. 10,000행에서 query당 평균 약 1.4 MB를 scan해 table 대부분을 읽는 것처럼 보였다. Lightning compute는 scan byte도 과금 기준이므로 table size와 함께 증가한다면 비싸질 수 있다.
+- 큰 table의 고빈도 lookup. Point lookup은 table을 scan했다. 10,000행에서 회당 약 1.4 MB, 100,000행에서 8–11 MB였다. 100,000행에서 lookup 1,000회에 약 $0.01이었고, engine 하나는 초당 약 160회에서 더 늘지 않았다. 바쁜 API를 올리기 전에 실제 table 크기에서 측정해야 한다.
+- 실행 중인 table의 쿼리 변경. `CREATE OR ALTER`는 새 쿼리가 버린 행을 남기고 table에 이미 있던 key의 갱신을 멈춘다. 쿼리 변경은 재구축으로 계획해야 한다.
 - 가장 저렴한 cluster에서 최소 권한이 필요하다. Agent가 read-only credential을 가져야 한다면 Standard cluster 비용을 반영해야 한다.
 - AWS 이외의 cloud. Lightning Tables와 Real-Time Context Engine은 AWS에서만 제공된다.
 
@@ -139,17 +144,20 @@ Tableflow에서 가장 잘 보인다. 첫 세션에서 topic은 2시간 20분 �
 - Materialized Table은 데이터 도착 여부와 관계없이 존재하는 동안 최소 CFU 하나를 사용한다. 시간당 $0.21, 하루 약 $5다.
 - Tableflow topic은 활성화된 동안 시간당 $0.10, 하루 $2.40이다.
 - 유휴 Basic cluster는 topic이 있어도 무료 첫 eCKU 안에 머문다. 부하로 늘어나는 eCKU는 하나당 시간당 $0.135다.
-- Lightning Tables는 항상 storage 비용이 들고 데이터가 도착하거나 query가 scan할 때 compute 비용이 든다.
+- Lightning Tables는 항상 storage 비용이 들고 데이터가 도착하거나 query가 scan할 때 compute 비용이 든다. 100,000행에서 point lookup은 1,000회에 약 $0.01이었다.
 - 에이전트는 실행할 때마다 비용이 든다. 그날의 model 호출 비용은 모두 합쳐 $0.20였다.
 
 유휴 Basic cluster, statement가 없는 compute pool, Schema Registry Essentials에는 비용이 없다.
 비싼 것은 계속 실행되는 부분이며, 세션 사이에 철거한 덕분에 하루 비용을 $4 미만으로 유지했다.
 
+세 번째 세션에서는 에이전트 비교, 장애 시험, 100,000행 실행을 진행했다.
+이 세션의 청구 내역은 Costs API에 모두 반영되면 여기에 추가하겠다.
+
 ## 더 확인하고 싶은 것
 
 - Statement의 commit interval을 줄일 수 있는가? 가능하다면 CFU 사용량에는 어떤 영향이 있는가? 문서에는 설정이 없고 support 문의를 안내한다.
-- 리전 내부에서 측정할 때 100,000행 이상에서 scanned bytes와 latency는 어떻게 변하는가?
-- Materialized Table을 실행 중에 변경하거나 부하 중지하고 schema를 깨뜨렸을 때 evolution과 failure는 어떤 모습인가?
+- Lightning의 약 5초 반영 시간은 cluster type, table, region 중 무엇에 따라 달라지는가? 각각 하나씩만 측정했다.
+- 쿼리 변경 후 source를 처음부터 다시 처리해 Materialized Table의 기존 key를 다시 만드는 데 얼마나 걸리고 비용은 얼마인가?
 - 어떤 부하가 Basic cluster를 eCKU 하나 넘게 키웠는가? 시간 단위 비용 데이터가 필요하다.
 
 ## 내가 사용하겠는가?
@@ -158,8 +166,8 @@ Streamhouse라는 발상은 실험을 통과했다고 생각한다.
 현재 상태를 한 번 정의하면 Flink가 최신으로 유지하고 애플리케이션과 agent가 읽으며 Iceberg가 history를 보관한다. 계층 사이의 유일한 interface는 Kafka topic이다.
 Confluent Cloud에서는 놀랄 만큼 적은 코드로 구성할 수 있었고 streaming agent는 SQL에서 시작해 첫 실행에 정확한 답을 냈다.
 
-하지만 이 구성에서 “실시간”은 수십 초였고 그 값을 결정한 것은 serving layer가 아니라 Flink의 exactly-once commit interval이었다.
-Lightning은 빠른 lookup에는 적합하지만 aggregate나 join은 할 수 없다.
+하지만 이 구성에서 “실시간”은 수십 초였고 그 대부분을 결정한 것은 Flink의 exactly-once commit interval이었다. Lightning은 약 5초를 더했다.
+Lightning은 리전 내부에서 lookup에 약 34 ms로 답하지만 aggregate나 join은 할 수 없고, 답하기 위해 table을 scan한다.
 
-1분이면 충분히 최신인 운영 의사결정과 agent context에는 사용하겠다.
+1분이면 충분히 최신인 운영 의사결정과 agent context에는 사용하겠다. 데이터뿐 아니라 pipeline에도 경보를 걸고, 쿼리 변경은 재구축으로 다루겠다.
 고빈도 lookup에 의존하기 전에는 내 데이터로 scan 비용을 측정하고 analytical work는 Iceberg에 두겠다.

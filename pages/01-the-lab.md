@@ -77,7 +77,7 @@ A header comment such as `-- lab:mode=snapshot` makes a file run as a snapshot (
 I used the Confluent CLI in one place, where neither of those works.
 Terraform has no `MCP_SERVER` connection type yet, so the agent's MCP connection comes from `confluent flink connection create`.
 
-150 offline unit tests cover the SQL files, the clients, secret handling, and the benchmark tooling, and run on every change without touching the cloud.
+190 offline unit tests cover the SQL files, the clients, secret handling, and the benchmark tooling, and run on every change without touching the cloud.
 Six live tests, one per capability, check the quick start's expected results against the real deployment and take about three minutes.
 
 I changed two things from the quick start:

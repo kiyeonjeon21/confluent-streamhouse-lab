@@ -1,20 +1,20 @@
 ---
 title: How fresh is "real time"?
-description: Measured freshness from a Kafka write to a Lightning read, query latency by shape, and concurrency, plus the benchmark bug that doubled the first result.
+description: Measured freshness from a Kafka write to a Lightning read, query latency, scan cost, and throughput, from Seoul and from inside us-east-1, plus the benchmark bug that doubled the first result.
 date: 2026-11-15
 part: 6
 lang: en
 alternate_url: /ko/06-how-fresh-is-real-time.html
 translation_key: chapter-06
-reading_time: 11
-sample: 30 freshness samples
+reading_time: 15
+sample: 30 freshness samples per run, from 2 regions
 takeaways:
   - label: "Observed"
-    text: "Derived state became visible after 44.3 seconds at p50 and 68.2 seconds at maximum; throughput reached 40.6 req/s at 32 clients with no errors."
+    text: "Derived state became visible after 43 to 46 seconds at p50 and at most 68 seconds, from Seoul at 10,000 rows and from inside us-east-1 at 100,000. In-region, a plain write reached Lightning in 5.5 seconds and a query took 34 ms."
   - label: "Interpretation"
-    text: "Flink wrote output in 2.6 seconds at p50, but its exactly-once commit, documented at about once a minute, held it until 38.5 seconds."
+    text: "Flink's exactly-once commit, about once a minute, sets most of the delay, and Lightning adds about 5 seconds of its own, not the documented 100 ms. Point lookups scan the table, so their cost grows with it."
   - label: "Limitation"
-    text: "One configuration: default exactly-once delivery, 10,000 rows, and a Seoul client. The runs do not isolate in-region latency, service-side saturation, or scan scaling."
+    text: "Default exactly-once delivery, one materialized table, generated data, and single-process clients. I didn't test at-least-once delivery or tables beyond 100,000 rows."
 ---
 
 According to the [Lightning Tables documentation](https://docs.confluent.io/cloud/current/lightning-tables/overview.html), a table updates within 100 ms of new data arriving in its topic.
@@ -126,16 +126,60 @@ After the commit, Lightning took another 3 to 7 seconds.
 This experiment can't observe where Confluent marks data as having arrived for the documented 100 ms target.
 What it can show is that for this transactional Flink output, 3 to 7 seconds passed between broker commit visibility and Lightning query visibility.
 
-So E1's "fixed 17 seconds" is the fastest commit, about 11 seconds after the write, plus about 5 seconds in Lightning.
-The two runs also agree on the total: a median of 44.3 seconds here and 46.1 in the first measurement.
+So E1's floor of 17 seconds was the fastest commit among those samples, about 11 seconds after the write, plus about 5 seconds in Lightning.
+It wasn't fixed, though.
+A later run from inside the region, at 100,000 rows, had a fastest sample of 7.1 seconds: a write that landed just before a commit.
+The two runs here agree on the total: a median of 44.3 seconds here and 46.1 in the first measurement.
 
 **Observed.** On this setup, a source change showed up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average. At p50, Flink had written the output after 2.6 seconds, the transaction was committed by 38.5 seconds, and Lightning served it by 44.3 seconds.
 
 **Explained.** The commit wait is most of the delay, and it's documented behavior: exactly-once output commits about once a minute. The `read_committed` consumer measured that wait directly, so tuning the join or the serving query would not have shortened it. The documentation describes no setting for the commit interval; it says Confluent is working on lowering exactly-once latency and suggests contacting support if you need less.
 
-**Not explained.** Where the 3 to 7 seconds between commit and Lightning visibility go. The documented 100 ms starts when data arrives in the topic, and this experiment can't see when Confluent considers transactional output to have arrived.
+**Not explained here.** Where the 3 to 7 seconds between commit and Lightning visibility go. The documented 100 ms starts when data arrives in the topic, and this experiment can't see when Confluent considers transactional output to have arrived. The in-region run below measures Lightning on a plain write.
 
-**Limitation.** One configuration, 30 samples per run, from a client in Seoul. I didn't test at-least-once delivery, pipelines with more than one Flink statement, or an in-region client.
+**Limitation.** One configuration, 30 samples per run, from a client in Seoul. I didn't test at-least-once delivery or pipelines with more than one Flink statement.
+
+## Lightning's own five seconds
+
+To take Flink out of the path, I wrote to the source topic, `bench_flight_status`, which has a Lightning Table of its own, and polled that table.
+These are plain Kafka writes, with no transaction to wait for.
+The client ran on an EC2 instance in `us-east-1`, where a query took 56 to 118 ms, so each sample is bounded to within about 0.4 seconds.
+
+In 30 samples, every write became visible between 5.1 and 5.8 seconds after the broker acknowledged it (p50 5.5 s).
+None was visible sooner than 5.07 seconds.
+
+So for this topic, Lightning's ingest took about 5 seconds every time, not the documented 100 ms.
+That is also the 3 to 7 seconds between commit and Lightning above, measured from Seoul with less resolution.
+I don't know whether it depends on the cluster type, the table, or the region; I measured one of each.
+
+## From inside the region, at 100,000 rows
+
+I repeated the freshness, latency, and throughput runs on a table ten times larger, from Seoul and from the EC2 instance.
+The generated data landed exactly: 63,712 OK, 21,264 AT_RISK, and 15,024 NO_CONNECTION, as predicted.
+
+**Freshness didn't move.**
+In-region at 100,000 rows: p50 42.8 s, p95 66.7 s, max 67.4 s, against p50 46.1 s and max 67.6 s from Seoul at 10,000.
+The commit interval sets it, not the table size or the client's distance.
+
+**Latency was mostly distance.**
+
+| Client | point lookup p50 | equality filter p50 | range filter p50 | point lookup p99 |
+|---|---|---|---|---|
+| Seoul | 679 ms | 687 ms | 672 ms | 1,080 ms |
+| us-east-1 | 34 ms | 34 ms | 37 ms | 64 ms |
+
+Ten times the rows didn't change the Seoul numbers, and from inside the region the engine answered in about 34 ms.
+The other 640 ms from Seoul was the network and the MCP transport, which spends several round trips of about 190 ms on each call.
+
+**Throughput has a ceiling.**
+In-region, one client managed 28.6 lookups a second and eight managed 160.3, with the median rising from 34 to 47 ms.
+Sixteen added only 4%, doubled the median to 94 ms, and got 136 JSON-RPC errors (code -32603) out of 5,009 requests, so the run stopped there.
+For this engine and table that is about 160 point lookups a second.
+
+**Lookups scan the table.**
+The Metrics API reports `dp_scanned_bytes` per table, so I divided it by the queries in windows that held only one run.
+At 100,000 rows a point lookup by primary key scanned 8 to 11 MB, against about 1.4 MB at 10,000, so the scan grows with the table, not with the result.
+In-region, 10,140 lookups used 58 CCU-minutes, about $0.01 per 1,000 lookups at $0.105 per CCU-hour, or roughly $6 an hour at 160 lookups a second.
 
 ## Query latency by shape
 
@@ -175,7 +219,7 @@ WHERE CONNECTION_MINUTES BETWEEN 45 AND 90 LIMIT 200
 
 **Interpretation.** At 10,000 rows, the cost of each call outweighed any difference between the three query shapes.
 
-**Limitation.** The 190 ms network round trip leaves about 500 ms unexplained, but this run cannot separate MCP overhead from Lightning engine time.
+**Limitation.** From Seoul, this run could not separate MCP overhead from engine time. The in-region run above did: the engine took about 34 ms.
 
 ### What the queries scanned
 
@@ -189,15 +233,15 @@ My recorded runs sent about 5,830 queries to `bench_passenger_state`: 2,952 E1 p
 
 **Observed.** Dividing 7.96 GB by 5,830 gives about 1.4 MB per query on a 10,000-row table, and most of those queries were single-row lookups by primary key.
 
-**Hypothesis.** That is consistent with each query reading most or all of the table instead of going straight to one key.
+**Hypothesis, confirmed at 100,000 rows.** That is consistent with each query reading most or all of the table instead of going straight to one key. At ten times the rows, the Metrics API showed 8 to 11 MB per lookup (above).
 
-**Limitation.** The console lists the table's size as 0 B, and Confluent doesn't document how lookups scan, so these numbers can't confirm the hypothesis.
+**Limitation.** The console and the `storage_bytes` metric both list the table's size as 0, and Confluent doesn't document how lookups scan, so I can compare scans only with each other, not with the table's size.
 
 If it's true, it affects cost.
 Lightning compute is billed in CCUs, and [one CCU covers up to 80 GB scanned per hour](https://docs.confluent.io/cloud/current/ai/real-time-context-engine/billing.html) (you pay for whichever meter is highest).
 At this size the scans were cheap, about 8 GB over an hour of experiments.
 If scanned bytes grow with table size, though, the E4 rate of 40 lookups per second on a table ten times larger would scan around 2 TB an hour.
-I haven't measured that; it's the next test, at 100,000 rows.
+At 100,000 rows they did grow: 40 lookups a second at 8 to 11 MB each is 1.2 to 1.6 TB an hour.
 
 ### What Lightning SQL allows
 
@@ -233,12 +277,12 @@ This is a closed loop: N workers, each with its own MCP session, each sending it
 
 **Interpretation.** The 32-client result fell short of the roughly 46 req/s implied by linear scaling, which may be the first sign of a bottleneck on either side of the connection.
 
-**Limitation.** All 32 workers shared one Python process on a laptop in Seoul. Clients in several processes or inside the region are needed before attributing the slowdown to the service.
+**Limitation.** All 32 workers shared one Python process on a laptop in Seoul. From inside the region the ceiling was about 160 lookups a second, so at 40 from Seoul the client side was the likelier limit.
 
 ## What I would do differently
 
-I'd run the clients inside the region.
-From Seoul the round trip alone is more than a quarter of every query's latency (about 190 of 690 ms).
+I'd run the clients inside the region from the start.
+From Seoul, the network and transport were 95% of every query's latency (about 650 of 690 ms), which hid both the engine's speed and its ceiling.
 
 I'd also be suspicious of any fixed delay in a benchmark.
 Mine looked harmless and lined the samples up with Flink's commits; random spacing fixed it in one line once I knew to look.

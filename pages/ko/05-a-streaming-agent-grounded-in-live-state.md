@@ -6,15 +6,15 @@ part: 5
 lang: ko
 alternate_url: /05-a-streaming-agent-grounded-in-live-state.html
 translation_key: chapter-05
-reading_time: 6
-sample: 에이전트 실행 2회
+reading_time: 9
+sample: 항공편 변경 후 에이전트별 20회 실행
 takeaways:
   - label: 관측 결과
-    text: 관리형 Claude 모델은 MCP로 실시간 항공편과 호텔을 조회해 두 승객 모두에게 예상한 항공편 두 개와 호텔을 반환했다.
+    text: 항공편이 바뀐 뒤 Flink 내부 에이전트는 40개 답변 모두 새 데이터로 답했고 답변마다 도구를 세 번 호출했다. 같은 모델과 도구를 쓴 Claude Code도 20회 모두 같았다.
   - label: 해석
-    text: AI_RUN_AGENT는 append-only 입력만 받으므로 연결편을 놓칠 위험이 있는 행을 upsert Materialized Table에서 먼저 복사해야 한다.
+    text: 에이전트가 시작할 때 Lightning은 이미 변경을 반환하고 있었으므로 에이전트는 호출 시점의 실시간 상태를 읽었다. 두 에이전트의 차이는 답의 내용이 아니라 실행과 보안 방식에 있었다.
   - label: 한계
-    text: 실행은 두 번뿐이다. 모델은 두 번 모두 한 줄 형식을 지키지 않았고 Basic에서는 도구의 credential이 CloudClusterAdmin을 보유했다.
+    text: 정답이 하나인 질문 하나만 시험했고, 오래된 데이터로 답할 만큼 짧은 구간은 잡지 못했다. 두 에이전트 모두 한 줄 형식을 지키지 않았고 Basic에서는 도구의 credential이 CloudClusterAdmin을 보유했다.
 ---
 
 ## 에이전트 구성
@@ -107,13 +107,38 @@ Quick start가 기대하는 답과 정확히 일치했다.
 RA232가 다음 날 아침에 출발하므로 호텔을 추가했고, 객실이 모두 팔린 Airport Bayfront Inn은 건너뛰었다.
 Prompt에는 항공편이나 호텔 데이터가 없으므로 이 정보는 모두 Lightning 실시간 조회에서 얻었다.
 
+## 변경을 보는가
+
+위 답은 멈춰 있는 데이터에서 나왔다.
+에이전트가 실행 시점의 상태를 읽는지 보려고 데이터를 스무 번 바꿨다.
+
+매 주기마다 RA214를 정시로 되돌리고, Lightning이 그렇게 반환할 때까지 기다린 뒤, 15:30 출발을 16:00으로 지연시켰다.
+이 변경 하나로 정답의 세 부분이 모두 바뀐다. RA214는 14:50 도착 70분 뒤에 출발하므로 첫 번째 제안이 되고, 6시간 뒤에 출발하는 제안이 없으므로 호텔이 필요 없다.
+
+```
+before  OFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel
+after   OFFER1=RA214;OFFER2=RA226;HOTEL=NONE
+```
+
+에이전트는 지연을 쓴 뒤 0, 5, 15, 30초에 각각 다섯 번씩, 순서를 섞어 실행했다.
+
+| | 실행 | 새 데이터로 답함 | 이전 데이터로 답함 | 제안 행 없음 | p50 | max |
+|---|---|---|---|---|---|---|
+| Flink 내부 에이전트(실행당 승객 2명) | 20 | 40개 중 40개 | 0 | 0 | 18.4초 | 22.9초 |
+
+0초에 실행한 경우까지 모든 답이 새 데이터를 사용했다.
+같은 주기에 별도의 poller는 이벤트의 Flink statement가 끝났다고 보고한 지 1초 안에, 첫 query에서 이미 Lightning이 지연을 반환하는 것을 확인했다.
+에이전트는 실시간 상태를 읽었지만, 이 실행으로는 에이전트가 오래된 데이터로 답하는 구간을 보여 줄 수 없었다. Lightning이 가장 짧은 offset보다 빨랐기 때문이다.
+그 반영 시간은 [Chapter 6](06-how-fresh-is-real-time.md)에서 직접 측정했다.
+
 ## 운영상의 한계
 
-Prompt에서 정확히 한 줄로 답하라고 했지만 두 실행 모두 앞에 문장을 하나 붙였다. Quick start에도 이 문제가 경고로 적혀 있다.
+Prompt에서 정확히 한 줄로 답하라고 했지만 40개 답변 모두 앞에 추론 문장을 붙였다. Quick start에도 이 문제가 경고로 적혀 있다.
 응답을 사용하는 코드는 전체 field를 parsing하지 말고 `OFFER1=` 행을 찾아야 한다. 실험의 test도 그렇게 동작한다.
 
-승객 두 명을 처리한 한 번의 실행은 종단 간 24–26초가 걸렸다. snapshot query 시작, model call, MCP call이 모두 포함된 시간이다.
-결과에는 에이전트가 도구를 몇 번 호출했는지 나오지 않으므로 단계별 시간을 측정하려면 다른 관측 수단이 필요하다.
+승객 두 명을 처리한 한 번의 실행은 종단 간 18–23초가 걸렸다. snapshot query 시작, model call, MCP call이 모두 포함된 시간이다.
+`AI_RUN_AGENT`는 선택적인 네 번째 인자로 system log table을 받고, 실행 중의 모든 model call과 tool call을 거기에 기록한다.
+이 table을 붙여 보니 40개 답변 모두 model call 세 번과 tool call 세 번으로 이뤄졌다.
 
 에이전트의 도구는 읽기 전용이지만 credential의 권한은 더 넓다.
 Basic 클러스터에서는 context reader key가 `CloudClusterAdmin`을 갖는다([Chapter 2](02-basic-clusters-and-read-only-agents.md)).
@@ -121,8 +146,36 @@ Basic 클러스터에서는 context reader key가 `CloudClusterAdmin`을 갖는�
 CLI로 connection을 만들면 secret이 SQL history에 남지 않고 `confluent flink connection describe`도 이를 반환하지 않는다.
 다만 CLI는 secret을 command-line argument로 받으므로 로컬 프로세스 목록에 잠시 나타난다.
 
-## 외부 MCP 클라이언트
+## Connection이 사라지면
+
+실행이 시작되고 5초 뒤에 에이전트의 MCP connection을 삭제했다.
+그 실행은 27초 뒤에 정상적으로 끝났고 답도 맞았다.
+다음 실행은 1초도 안 돼 실패했는데, 오류가 엉뚱한 대상을 가리켰다.
+
+```
+Agent '`river-air-lab`.`river-air`.`rebooking_agent`' does not exist.
+```
+
+에이전트는 그대로 있었다.
+같은 이름으로 connection만 다시 만들자 에이전트, 도구, 모델을 건드리지 않고도 다음 실행이 성공했다.
+이 오류가 보이면 에이전트를 다시 만들기 전에 도구가 쓰는 connection부터 확인해야 한다.
+
+## 같은 데이터를 읽는 외부 MCP 클라이언트
 
 권한이 있는 MCP client라면 누구나 Lightning Tables를 읽을 수 있다. Flink 내부 agent는 그중 하나일 뿐이다.
-같은 endpoint와 key를 Claude Code에 설정하면 같은 승객 상태를 읽을 수 있지만 이 실험에서는 비교 실행을 하지 않았다.
-애플리케이션과 에이전트가 각자의 복사본 대신 지속적으로 유지되는 하나의 table을 사용하는 것이 Streamhouse가 제공하려는 공유 상태다.
+비교를 위해 같은 스무 주기 동안 같은 작업을 Claude Code에서 headless로 실행했다.
+Claude Code에는 에이전트의 prompt를 system prompt로, 같은 모델(`claude-sonnet-4-6`)을 주고, 내장 도구는 모두 끄고 같은 context 도구 두 개만 허용했다.
+
+| | 실행 | 새 데이터로 답함 | 제안 행 없음 | tool call | p50 | max |
+|---|---|---|---|---|---|---|
+| Claude Code, 첫 실행 | 20 | 17 | 3 | 2–5 | 16.8초 | 20.6초 |
+| Claude Code, `listTopics` 숨김 | 20 | 20 | 0 | 3 | 15.8초 | 20.3초 |
+
+첫 실행의 실패 세 번은 내 설정 탓이었다.
+Engine은 세 번째 도구 `listTopics`도 제공하는데, Flink 도구는 `allowed_tools`로 이를 뺀다.
+Claude Code는 이 도구를 허용하지 않은 채 모델에게 보여 줬고, 모델이 호출하자 실행을 멈추고 권한을 요청했다.
+두 에이전트가 같은 두 도구만 보도록 숨기자 해결됐다.
+
+같은 모델과 도구에서 두 에이전트는 같은 답을 냈고 답변마다 같은 세 번의 tool call을 했다.
+차이는 실행 방식에 있다. Flink 에이전트는 요청 table 위의 statement로 Confluent 청구서에 과금되고 table에 로그가 남는다. Claude Code는 직접 실행하고 보안을 챙겨야 하는 process이며 여기서는 답변당 약 $0.035였다.
+둘 다 각자의 복사본 대신 지속적으로 유지되는 하나의 table을 읽는다. Streamhouse가 제공하려는 것이 바로 이 공유 상태다.
