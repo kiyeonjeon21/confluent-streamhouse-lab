@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Destroys everything this lab created and then proves nothing is left.
+#
+# Deleting the environment removes its cluster, compute pool, topics, Flink
+# statements, the materialized table, Lightning Tables, Tableflow tables, and the
+# CLI-created rtce-connection. Service accounts and their API keys are
+# organization-level and are destroyed by Terraform explicitly.
+#
+#   scripts/cleanup           plan the destroy, ask, destroy, verify
+#   scripts/cleanup --verify  only check that nothing is left
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+name="$(terraform -chdir=terraform output -raw flink_catalog 2>/dev/null || true)"
+# Without state, `output -raw` prints nothing; an empty prefix would match every account.
+[[ "$name" =~ ^[a-z][a-z0-9-]{2,30}$ ]] || name="river-air-lab"
+
+verify() {
+  local leftovers=0
+  if confluent environment list -o json | jq -e --arg n "$name" '.[] | select(.name == $n)' >/dev/null; then
+    echo "LEFT: environment $name"; leftovers=1
+  fi
+  local sas
+  sas="$(confluent iam service-account list -o json | jq -r --arg n "$name" '.[] | select(.name | startswith($n)) | .id')"
+  for sa in $sas; do
+    echo "LEFT: service account $sa"; leftovers=1
+    confluent api-key list --service-account "$sa" -o json | jq -r '.[].key' | sed 's/^/LEFT: api key /'
+  done
+  if [[ $leftovers -eq 0 ]]; then
+    echo "Clean: no environment, service account, or API key named $name* remains."
+  fi
+  return $leftovers
+}
+
+if [[ "${1:-}" == "--verify" ]]; then
+  verify
+  exit $?
+fi
+
+: "${CONFLUENT_CLOUD_API_KEY:?set it in .env (see .env.example) and run direnv allow}"
+: "${CONFLUENT_CLOUD_API_SECRET:?set it in .env (see .env.example) and run direnv allow}"
+
+plan_file="destroy.tfplan"
+trap 'rm -f "terraform/$plan_file"' EXIT
+
+terraform -chdir=terraform plan -destroy -input=false -out="$plan_file"
+echo
+read -r -p "Type 'destroy' to permanently delete the lab and all its data: " answer
+if [[ "$answer" != "destroy" ]]; then
+  echo "Aborted. Nothing was deleted."
+  exit 1
+fi
+
+terraform -chdir=terraform apply -input=false "$plan_file"
+echo
+verify
+echo
+echo "Not managed here: the Cloud API key in .env that Terraform used. Delete it when the lab is"
+echo "finished for good: confluent api-key delete <key>"

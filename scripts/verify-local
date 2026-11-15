@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Offline verification: nothing here talks to Confluent Cloud or creates resources.
+# Terraform downloads the provider plugin on first run.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+echo "== terraform fmt / validate (no backend, no credentials)"
+terraform -chdir=terraform fmt -check -recursive
+terraform -chdir=terraform init -backend=false -input=false >/dev/null
+terraform -chdir=terraform validate
+
+echo "== ruff"
+uv run ruff check src tests
+uv run ruff format --check src tests
+
+echo "== shellcheck"
+if command -v shellcheck >/dev/null; then
+  shellcheck scripts/*
+else
+  echo "shellcheck not installed; skipped"
+fi
+
+echo "== unit tests"
+uv run pytest -q

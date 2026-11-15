@@ -1,0 +1,21 @@
+confluent-streamhouse-lab
+
+This project is independent of Confluent, Inc. and is not endorsed by it.
+
+The River Air scenario and the Flink SQL in sql/ are adapted from:
+
+  - Confluent Cloud documentation, "Quick Start: Build a Streamhouse on Confluent Cloud"
+    https://docs.confluent.io/cloud/current/streamhouse/quick-start.html
+    (retrieved 2026-11-15, page last updated 2026-11-03)
+
+  - confluentinc/quickstart-streamhouse, commit fcb22b06f879b9afc9fdfc4cd8aed2cc550da2fc
+    https://github.com/confluentinc/quickstart-streamhouse
+    Copyright Confluent, Inc. Licensed under the Apache License, Version 2.0.
+    A copy of that license is in licenses/quickstart-streamhouse-LICENSE.txt.
+
+Files adapted from those sources say so in their header comment. Changes made here:
+the statements were split one per file for the Flink statements API, header
+comments were added, and events/ra417-on-time.sql and the snapshot checks in
+02-transform/checks/ are new.
+
+Apache Kafka, Apache Flink, and Apache Iceberg are trademarks of the Apache Software Foundation.

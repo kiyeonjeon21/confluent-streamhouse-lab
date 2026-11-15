@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Runs the end-to-end capability tests against the deployed lab. Billed: each
+# check is a Flink snapshot query, and capability 6 calls a managed model.
+#
+#   scripts/verify-live                 every capability whose resources exist
+#   scripts/verify-live capability_3    one capability (pytest -k expression)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+uv run lab status >/dev/null
+uv run pytest -m live tests/live -s -v ${1:+-k "$1"}

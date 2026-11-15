@@ -1,0 +1,35 @@
+# Secrets. Real values live in .env (local only) and Terraform state.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Terraform state and plans hold API secrets in plaintext.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+*.tfplan
+crash.log
+crash.*.log
+
+# Experiment output. Raw measurements are kept locally; summaries go to docs/.
+results/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json

@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (gitignored) and uncomment as the lab progresses.
+# Each step adds billable resources; see docs/plan.md before applying.
+
+# Capability 4: serve current state as Lightning Tables.
+# lightning_topics = {
+#   passenger_state = "One current row per River Air passenger: inbound and connecting flight, final destination, inbound arrival time, connection minutes, and risk (OK, AT_RISK, NO_CONNECTION)."
+#   flight_status   = "Latest status of every River Air flight: origin, destination, scheduled and estimated times, and status (ON_TIME, DELAYED, CANCELLED)."
+#   hotel_inventory = "Hotels near SFO with the number of available rooms and the nightly rate in USD."
+# }
+
+# Capability 5: keep history as an Iceberg table.
+# tableflow_topics = ["flight_history"]
