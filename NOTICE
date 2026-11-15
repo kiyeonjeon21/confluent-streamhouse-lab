@@ -17,6 +17,7 @@ Files adapted from those sources say so in their header comment. Changes made he
 the statements were split one per file for the Flink statements API, header
 comments were added, and events/ra417-on-time.sql and the snapshot checks in
 02-transform/checks/ are new. The tables and materialized table in 07-bench/ are
-copies of the adapted ones under bench_ names, for load experiments.
+copies of the adapted ones under bench_ names, for load experiments. 08-hybrid/ and
+events/hybrid-*.sql are new, shaped like flight_history.
 
 Apache Kafka, Apache Flink, and Apache Iceberg are trademarks of the Apache Software Foundation.

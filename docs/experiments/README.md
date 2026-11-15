@@ -26,13 +26,24 @@ Freshness = first-visible time minus acknowledgement time, both from the client'
 Vary: Flink checkpoint and commit settings if exposed; event rate (idle versus 10 per second background).
 
 Expected shape from documentation: Lightning ingest is under 100 ms, so the total should be dominated by Flink's commit interval.
+Measured: dominated by the commit, but Lightning added 3 to 7 s after it (see E2).
 
-### E2: streaming update latency inside Flink
+### E2: where the freshness goes
 
-Question: how long does the materialized table take to emit an updated row, independent of Lightning?
+Question: of E1's end-to-end time, how much is Flink writing, how much is waiting for Flink's commit, and how much is Lightning?
 
-Method: same marker technique, reading the `passenger_state` topic directly with a Kafka consumer (record timestamp and consume time) instead of Lightning.
-E1 minus E2 isolates the Lightning serving hop.
+Method: E1's marker technique, with two Kafka consumers on the materialized table's output topic running on background threads beside the Lightning polling.
+A `read_uncommitted` consumer sees Flink's write as soon as it lands; a `read_committed` consumer sees it once Flink's transaction commits.
+Each write is therefore observed three times (written, committed, served), and the gaps between them decompose freshness.
+The output record's broker timestamp, compared with the input record's, measures Flink's write step on server clocks alone.
+
+### Hybrid read
+
+Question: does a Flink snapshot query on a Tableflow-enabled topic really combine Iceberg history with the Kafka tail?
+
+Method: on a dedicated table, write an old batch, wait until it is in Iceberg, delete its Kafka records with `DeleteRecords`, observe Kafka, Iceberg, and a snapshot query; then write a new batch and observe all three again.
+A query that returns old rows absent from Kafka, together with new rows absent from Iceberg, has read both.
+Retention cannot stand in for the deletion quickly, because Confluent Cloud enforces a minimum `segment.ms` of four hours.
 
 ### E3: Lightning query latency
 
@@ -90,7 +101,8 @@ E2 and the hybrid read: [2026-11-15-e2-and-hybrid.md](2026-11-15-e2-and-hybrid.m
 | Producer | [`kafka_io.py`](../../src/streamhouse_lab/kafka_io.py) | Serializes with the schema Flink registered (latest version, never auto-registers), `acks=all`, idempotent, and records the broker acknowledgement time on the monotonic clock. |
 | Recorder | [`measure.py`](../../src/streamhouse_lab/measure.py) | One JSON-lines file per run under `results/` (gitignored), with a header holding parameters, region, client location, and git revision. |
 | Network probe | [`measure.py`](../../src/streamhouse_lab/measure.py) | DNS, TCP connect, and TLS handshake to the MCP host, recorded before and after every run. |
-| Runners | [`bench.py`](../../src/streamhouse_lab/bench.py) | E1, E3, E4 as specified above. E1 records both visibility bounds per sample. |
+| Topic readers and truncation | [`kafka_io.py`](../../src/streamhouse_lab/kafka_io.py) | Readers per isolation level that deserialize with the registered schemas; `read_all` from the log start; `truncate` with `DeleteRecords`. |
+| Runners | [`bench.py`](../../src/streamhouse_lab/bench.py) | E1, E2, E3, E4, and the hybrid read as specified above. E1 and E2 record both Lightning visibility bounds per sample and space writes with seeded jitter; the hybrid runner records what Kafka, Iceberg, and Flink each see at every step and supports `--resume`. |
 | Summaries | [`summarize.py`](../../src/streamhouse_lab/summarize.py) | Nearest-rank percentiles, so every reported number was actually observed; errors counted separately. |
 
 Commands:
@@ -100,6 +112,8 @@ uv run lab bench gen --dry-run --passengers 10000 --seed 7        # shape only, 
 uv run lab bench gen --passengers 10000 --seed 7                  # produce the dataset
 uv run lab check bench                                            # risk counts in Flink
 uv run lab bench e1 --samples 30 --location seoul-laptop
+uv run lab bench e2 --samples 30 --location seoul-laptop
+uv run lab bench hybrid --location seoul-laptop                   # needs Tableflow on hybrid_flight_history
 uv run lab bench e3 --repeat 100 --passengers 10000 --location seoul-laptop
 uv run lab bench e4 --levels 1,2,4,8,16,32 --duration 30 --location seoul-laptop
 uv run lab bench summarize results/e3/<run-id>.jsonl --metric latency_ms
@@ -114,8 +128,9 @@ Each step below changes cloud state or bills, so each needs explicit approval.
    The Lightning Table needs the topic to exist, so on a fresh deploy apply step 2 first and add the topic afterwards.
 2. `uv run lab apply bench`: two tables and a second materialized table, billed at least 1 CFU while it runs.
 3. `uv run lab bench gen`: writes the dataset (about 1 MB for 10,000 passengers).
-4. The experiment itself.
-5. Afterwards, `scripts/cleanup`, or remove the bench Lightning Table and stop the bench materialized table.
+4. For the hybrid read only: `uv run lab apply hybrid`, then add `hybrid_flight_history` to `tableflow_topics` and `scripts/deploy`. Adds one Tableflow topic, billed per hour while enabled.
+5. The experiment itself.
+6. Afterwards, `scripts/cleanup`, or remove the bench Lightning Table, the Tableflow topic, and stop the bench materialized table.
 
 ## Known caveat for the first runs
 

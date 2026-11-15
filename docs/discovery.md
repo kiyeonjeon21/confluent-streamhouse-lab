@@ -110,10 +110,21 @@ From the Lightning Tables, Tableflow, Flink, and RTCE documentation:
 - Flink reads Tableflow tables only in snapshot queries.
 - A materialized table evolution discards state and rebuilds; upsert outputs can keep stale keys that a stricter new query no longer emits.
 - A compute pool's `max_cfu` can be raised but never lowered.
+- Confluent Cloud enforces a minimum `segment.ms` of four hours (docs.confluent.io/cloud/current/topics/manage.html), so short retention does not delete data quickly; Kafka deletes only closed segments. `DeleteRecords` works and is how the hybrid-read experiment emptied a topic.
 - Each user account can have only two Global API keys.
   The lab avoids spending them by giving the key to a service account.
 - Basic clusters do not support RBAC roles on resources inside the cluster.
   Confirmed on 2026-11-15: a read-only context reader is impossible on Basic, and the reader needs `CloudClusterAdmin` (see [capability 4](capabilities/04-lightning-tables.md)).
+
+## Found later by measurement
+
+Not in the documentation, or contrary to it; details in [docs/experiments](experiments/README.md):
+
+- A materialized table's continuous query is not in the statement list; it appears only under the materialized-tables API.
+- The quick start's `passenger_state` query carries two CRITICAL Flink warnings.
+- Derived state reaches readers when Flink commits, about once a minute; Lightning then adds 3 to 7 s, not 100 ms.
+- On 10,000 rows, Lightning queries scanned about 1.4 MB each, roughly the whole table, even for key lookups (unconfirmed).
+- A Basic cluster cannot give a service account the read-only access the Real-Time Context Engine needs.
 
 ## Costs
 

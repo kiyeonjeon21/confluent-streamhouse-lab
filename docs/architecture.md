@@ -87,9 +87,11 @@ These boundaries come from the documentation and decide where logic goes:
 - Joins, aggregations, and enrichment run in Flink.
   Lightning queries are single-topic and reject GROUP BY, COUNT, and OFFSET.
 - Lightning serves current state.
-  It updates within 100 ms of data arriving in the topic, but a Flink output topic only receives data at Flink's commit interval, so derived state is as fresh as Flink's checkpoint, not Lightning's ingest.
+  The documentation says it updates within 100 ms of data arriving in the topic.
+  For a materialized table's output, which Flink writes transactionally, committed data appeared 11 to 62 s after the source write (a commit about once a minute) and Lightning served it 3 to 7 s after that ([E2](experiments/2026-11-15-e2-and-hybrid.md)).
+  Derived state is as fresh as Flink's commit, plus a few seconds.
 - Tableflow serves history.
-  Flink can read it only with snapshot queries, which combine the Iceberg snapshot with the Kafka tail.
+  Flink can read it only with snapshot queries, which combine the Iceberg snapshot with the Kafka tail; that hybrid read was shown directly by deleting the Kafka copy of old rows ([hybrid read](experiments/2026-11-15-e2-and-hybrid.md)).
 - Agents read append-only input.
   `AI_RUN_AGENT` cannot consume the upsert `passenger_state` directly, hence `rebooking_requests`.
 

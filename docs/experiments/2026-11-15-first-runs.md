@@ -113,6 +113,6 @@ Not yet broken down: the billing page lags, so the E7 cost record for this sessi
 
 ## What to do next
 
-- E1: separate Flink's commit step from Lightning's ingest by reading the `bench_passenger_state` topic directly with a Kafka consumer (E2).
+- E1: separate Flink's commit step from Lightning's ingest by reading the `bench_passenger_state` topic directly with a Kafka consumer (E2). Done the same day: [E2 and the hybrid read](2026-11-15-e2-and-hybrid.md).
 - E3 and E4: repeat from a client inside `us-east-1` to remove the trans-Pacific round trip, and at 100,000 passengers to see whether row count changes the picture.
 - E4: spread workers across processes to rule out the client as the bottleneck at 32.
