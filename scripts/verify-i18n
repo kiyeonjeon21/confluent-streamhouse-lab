@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+count_matches() {
+  local pattern="$1"
+  local file="$2"
+  (rg -o "$pattern" "$file" 2>/dev/null || true) | wc -l | tr -d ' '
+}
+
+failed=0
+for english in pages/0[1-7]-*.md; do
+  korean="pages/ko/$(basename "$english")"
+  if [[ ! -f "$korean" ]]; then
+    echo "missing translation: $korean"
+    failed=1
+    continue
+  fi
+
+  english_key="$(rg -o '^translation_key: .+' "$english" | cut -d' ' -f2-)"
+  korean_key="$(rg -o '^translation_key: .+' "$korean" | cut -d' ' -f2-)"
+  if [[ -z "$english_key" || "$english_key" != "$korean_key" ]]; then
+    echo "translation_key mismatch: $english <> $korean"
+    failed=1
+  fi
+
+  for spec in \
+    'headings:^#{2,3} ' \
+    'code fences:^```' \
+    'table rows:^\|' \
+    'Markdown links:\]\(' \
+    'images:!\['; do
+    label="${spec%%:*}"
+    pattern="${spec#*:}"
+    english_count="$(count_matches "$pattern" "$english")"
+    korean_count="$(count_matches "$pattern" "$korean")"
+    if [[ "$english_count" != "$korean_count" ]]; then
+      echo "$label mismatch: $english=$english_count, $korean=$korean_count"
+      failed=1
+    fi
+  done
+done
+
+if [[ "$failed" -ne 0 ]]; then
+  exit 1
+fi
+
+echo "i18n structure check passed for 7 chapter pairs"

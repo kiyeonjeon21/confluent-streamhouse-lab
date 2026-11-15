@@ -29,7 +29,7 @@
   ko_url: /ko/03-materialized-tables-in-practice.html
   ko_title: Materialized Table 실전 운용
   ko_short_title: Materialized Table
-  ko_summary: 계속 실행되는 쿼리, CRITICAL 경고, 실제 freshness를 결정하는 설정.
+  ko_summary: 계속 실행되는 쿼리, CRITICAL 경고, 실제 최신성을 결정하는 설정.
   ko_label: Flink
 - part: 4
   url: /04-proving-tableflow-wrote-iceberg.html
@@ -61,8 +61,8 @@
   label: Benchmarks
   ko_url: /ko/06-how-fresh-is-real-time.html
   ko_title: “실시간”은 얼마나 최신인가?
-  ko_short_title: Freshness 벤치마크
-  ko_summary: Kafka 쓰기부터 Lightning 읽기까지의 freshness, 쿼리 지연, 스캔량, 동시성.
+  ko_short_title: 최신성 벤치마크
+  ko_summary: Kafka 쓰기부터 Lightning 읽기까지의 최신성, 쿼리 지연 시간, 스캔량, 동시성.
   ko_label: 벤치마크
 - part: 7
   url: /07-is-a-streamhouse-worth-it.html

@@ -5,6 +5,7 @@ date: 2026-11-15
 part: 6
 lang: en
 alternate_url: /ko/06-how-fresh-is-real-time.html
+translation_key: chapter-06
 reading_time: 11
 sample: 30 freshness samples
 takeaways:

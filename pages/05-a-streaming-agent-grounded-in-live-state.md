@@ -5,6 +5,7 @@ date: 2026-11-15
 part: 5
 lang: en
 alternate_url: /ko/05-a-streaming-agent-grounded-in-live-state.html
+translation_key: chapter-05
 reading_time: 6
 sample: 2 agent runs
 takeaways:

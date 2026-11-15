@@ -5,6 +5,7 @@ date: 2026-11-15
 part: 1
 lang: en
 alternate_url: /ko/01-the-lab.html
+translation_key: chapter-01
 reading_time: 7
 sample: 6 live capabilities
 takeaways:

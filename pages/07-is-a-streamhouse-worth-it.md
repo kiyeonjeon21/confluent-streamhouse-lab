@@ -5,6 +5,7 @@ date: 2026-11-15
 part: 7
 lang: en
 alternate_url: /ko/07-is-a-streamhouse-worth-it.html
+translation_key: chapter-07
 reading_time: 8
 sample: Evidence from all 6 capabilities
 takeaways:

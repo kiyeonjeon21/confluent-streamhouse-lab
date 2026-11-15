@@ -5,6 +5,7 @@ date: 2026-11-15
 part: 2
 lang: en
 alternate_url: /ko/02-basic-clusters-and-read-only-agents.html
+translation_key: chapter-02
 reading_time: 5
 sample: 3 authorization attempts
 takeaways:

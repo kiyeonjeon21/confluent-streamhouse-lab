@@ -13,6 +13,9 @@ echo "== ruff"
 uv run ruff check src tests
 uv run ruff format --check src tests
 
+echo "== i18n structure"
+scripts/verify-i18n
+
 echo "== shellcheck"
 if command -v shellcheck >/dev/null; then
   shellcheck scripts/*

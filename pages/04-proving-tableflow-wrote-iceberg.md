@@ -5,6 +5,7 @@ date: 2026-11-15
 part: 4
 lang: en
 alternate_url: /ko/04-proving-tableflow-wrote-iceberg.html
+translation_key: chapter-04
 reading_time: 7
 sample: 6 rows reconciled by offset
 takeaways:

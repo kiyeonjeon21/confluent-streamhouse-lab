@@ -5,6 +5,7 @@ date: 2026-11-15
 part: 3
 lang: en
 alternate_url: /ko/03-materialized-tables-in-practice.html
+translation_key: chapter-03
 reading_time: 6
 sample: 2 CRITICAL warnings
 takeaways:
