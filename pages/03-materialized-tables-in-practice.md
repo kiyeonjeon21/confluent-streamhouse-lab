@@ -102,7 +102,7 @@ The resolved table options include:
 
 With a 5-second flush I expected downstream readers to see changes within a few seconds.
 In my measurements, derived state reached Lightning Tables in steps about a minute apart.
-Flink commits its output transaction about once a minute, and readers that only see committed data, Lightning included, wait for that commit.
+Flink commits its output transaction about once a minute, as Confluent's [delivery guarantees page](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html) documents for the default exactly-once mode, and readers that only see committed data, Lightning included, wait for that commit.
 [Part 6](06-how-fresh-is-real-time.md) breaks the time down.
 
 ## Smaller notes

@@ -1,22 +1,40 @@
 const articleBody = document.querySelector(".article-body");
-const tocTarget = document.querySelector("#article-toc-links");
+const tocLinks = [...document.querySelectorAll(".article-toc a[href^='#']")];
 
-if (articleBody && tocTarget) {
-  const headings = [...articleBody.querySelectorAll("h2, h3")];
-  const list = document.createElement("ol");
+// The table of contents is rendered at build time (_includes/toc.html).
+// This only marks the section being read, for the sticky desktop list.
+if (articleBody && tocLinks.length) {
+  const sections = tocLinks
+    .map((link) => [link, document.getElementById(decodeURIComponent(link.hash.slice(1)))])
+    .filter(([, heading]) => heading);
+  let current = null;
+  let scheduled = false;
 
-  headings.forEach((heading) => {
-    if (!heading.id) return;
-    const item = document.createElement("li");
-    const link = document.createElement("a");
-    link.href = `#${heading.id}`;
-    link.textContent = heading.textContent;
-    if (heading.tagName === "H3") item.className = "article-toc__subitem";
-    item.append(link);
-    list.append(item);
-  });
+  const markCurrent = () => {
+    scheduled = false;
+    const line = window.innerHeight * 0.25;
+    let next = null;
+    for (const [link, heading] of sections) {
+      if (heading.getBoundingClientRect().top > line) break;
+      next = link;
+    }
+    const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+    if (atEnd && sections.length) next = sections[sections.length - 1][0];
+    if (next === current) return;
+    current?.removeAttribute("aria-current");
+    next?.setAttribute("aria-current", "location");
+    current = next;
+  };
 
-  if (list.children.length) tocTarget.append(list);
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(markCurrent);
+  };
+
+  window.addEventListener("scroll", schedule, { passive: true });
+  window.addEventListener("resize", schedule);
+  schedule();
 }
 
 if (articleBody) {

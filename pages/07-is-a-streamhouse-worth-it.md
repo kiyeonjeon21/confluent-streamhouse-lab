@@ -7,9 +7,9 @@ reading_time: 8
 sample: Evidence from all 6 capabilities
 takeaways:
   - label: "Observed"
-    text: "One Flink definition supplied applications, Lightning reads, and the agent, while Tableflow preserved history without another export pipeline."
+    text: "One Flink definition of passenger state fed both the Lightning reads and the agent, while Tableflow preserved history without another export pipeline."
   - label: "Interpretation"
-    text: "This setup fits operational decisions that tolerate tens of seconds, not sub-second read-your-write paths or serving-layer analytics."
+    text: "As tested, with default exactly-once delivery, this setup fits operational decisions that tolerate tens of seconds, not sub-second read-your-write paths or serving-layer analytics."
   - label: "Limitation"
     text: "Production evaluation still needs realistic scan-cost tests and a cluster tier that can give agent credentials least privilege."
 ---
@@ -50,7 +50,7 @@ This held, with a catch about timing.
 `passenger_state` was defined once.
 The bounded join computed the same connection times, the Lightning reads and the agent saw the same passengers and risk flags, and a delay flipped two of them to `AT_RISK` without anyone touching the definition ([part 3](03-materialized-tables-in-practice.md)).
 The catch is how that state moves.
-Derived state reached readers in steps about a minute apart, because Flink commits its output transaction about once a minute, and Lightning took another 3 to 7 seconds after each commit ([part 6](06-how-fresh-is-real-time.md)).
+Derived state reached readers in steps about a minute apart, because Flink commits its exactly-once output about once a minute, [as Confluent documents](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html), and Lightning took another 3 to 7 seconds after each commit ([part 6](06-how-fresh-is-real-time.md)).
 Every reader agrees on the same state, and they all agree on it about a minute late.
 
 ### 2. Decide across the last five seconds and the last five years
@@ -89,9 +89,9 @@ Based on what the lab showed, a Streamhouse on Confluent Cloud fits well when:
 
 ## Where it does not, yet
 
-- Sub-second freshness, or users reading their own writes. Flink commits derived state about once a minute and Lightning adds seconds on top, so someone who just changed something won't see it in derived state yet.
+- Sub-second freshness, or users reading their own writes, with the default exactly-once delivery I tested. Flink commits derived state about once a minute and Lightning adds seconds on top, so someone who just changed something won't see it in derived state yet. Confluent says it is working on reducing that latency.
 - Analytical queries on the serving layer. Lightning returns at most 200 rows per MCP query and rejects aggregates, `GROUP BY`, and joins, so that work belongs in Flink or in an engine reading Iceberg.
-- High-rate lookups on large tables, until someone measures them. On 10,000 rows each query scanned about 1.4 MB, roughly the whole table, and Lightning bills compute partly by bytes scanned. If that grows with table size, heavy point-lookup traffic could get expensive. I'd test this before committing.
+- High-rate lookups on large tables, until someone measures them. On 10,000 rows each query scanned about 1.4 MB on average, which looks like most of the table, and Lightning bills compute partly by bytes scanned. If that grows with table size, heavy point-lookup traffic could get expensive. I'd test this before committing.
 - Least privilege on the cheapest cluster. If agents must hold read-only credentials, budget for a Standard cluster.
 - Clouds other than AWS. Lightning Tables and the Real-Time Context Engine are AWS only.
 
@@ -108,7 +108,7 @@ An idle Basic cluster, compute pool, and Schema Registry cost nothing, which is 
 
 ## What I would still want to know
 
-- Whether the commit interval can be shortened on Confluent Cloud, and what that does to CFU use.
+- Whether the commit interval can be shortened for a statement, and what that does to CFU use. The documentation describes no setting for it and points to support.
 - How scanned bytes and latency change at 100,000 rows and beyond, measured from inside the region.
 - What evolution and failure look like: changing a materialized table in place, stopping it under load, breaking a schema.
 - What each of those actually costs on the invoice.
@@ -119,6 +119,6 @@ I think the Streamhouse idea holds up.
 You define the current state once, Flink keeps it up to date, applications and agents read it, and Iceberg keeps its history, with Kafka topics as the only interface between layers.
 On Confluent Cloud it takes surprisingly little code, and the streaming agent went from SQL to a correct answer on the first try.
 
-"Real time" here means tens of seconds, though, and Flink's commit interval sets that.
+In this configuration, though, "real time" meant tens of seconds, and Flink's exactly-once commit interval set that, not the serving layer.
 Lightning is good for fast lookups and can't aggregate or join.
 I'd use it for operational decisions and agent context where a minute is fresh enough, measure scan costs on my own data before depending on high-rate lookups, and keep analytical work in Iceberg.

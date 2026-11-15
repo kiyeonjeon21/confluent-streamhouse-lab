@@ -123,6 +123,7 @@ Not in the documentation, or contrary to it; details in [docs/experiments](exper
 - A materialized table's continuous query is not in the statement list; it appears only under the materialized-tables API.
 - The quick start's `passenger_state` query carries two CRITICAL Flink warnings.
 - Derived state reaches readers when Flink commits, about once a minute; Lightning then adds 3 to 7 s, not 100 ms.
+  The commit interval is documented: [Delivery Guarantees and Latency](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html) (read 2026-11-15) says Flink commits transactions approximately every minute under the default exactly-once guarantee, describes no setting to change it, and suggests contacting support for lower latency.
 - On 10,000 rows, Lightning queries scanned about 1.4 MB each, roughly the whole table, even for key lookups (unconfirmed).
 - A Basic cluster cannot give a service account the read-only access the Real-Time Context Engine needs.
 

@@ -1,0 +1,24 @@
+{%- comment -%}
+  Builds the "On this page" list at build time from the rendered article, so it
+  works without JavaScript. kramdown renders headings as <h2 id="slug">Text</h2>.
+  Usage: {% include toc.html html=content %}
+{%- endcomment -%}
+{%- assign toc_chunks = include.html | split: '<h' -%}
+{%- capture toc_items -%}
+{%- for chunk in toc_chunks offset: 1 -%}
+  {%- assign toc_level = chunk | slice: 0 -%}
+  {%- unless toc_level == '2' or toc_level == '3' -%}{%- continue -%}{%- endunless -%}
+  {%- assign toc_open = chunk | split: '>' | first -%}
+  {%- unless toc_open contains ' id="' -%}{%- continue -%}{%- endunless -%}
+  {%- assign toc_id = toc_open | split: ' id="' | last | split: '"' | first -%}
+  {%- assign toc_close = '</h' | append: toc_level -%}
+  {%- assign toc_text = chunk | remove_first: toc_open | remove_first: '>' | split: toc_close | first | strip_html | strip -%}
+  <li{% if toc_level == '3' %} class="article-toc__subitem"{% endif %}><a href="#{{ toc_id }}">{{ toc_text }}</a></li>
+{%- endfor -%}
+{%- endcapture -%}
+{%- if toc_items != '' -%}
+<nav class="article-toc" aria-labelledby="article-toc-title">
+  <p class="article-toc__title" id="article-toc-title">On this page</p>
+  <ol>{{ toc_items }}</ol>
+</nav>
+{%- endif -%}

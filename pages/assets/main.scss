@@ -35,7 +35,6 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 92px;
 }
 
 body {
@@ -127,6 +126,7 @@ button:focus-visible {
 
 .site-title strong {
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .site-title small {
@@ -152,9 +152,13 @@ button:focus-visible {
 }
 
 .site-nav {
+  position: static;
   display: flex;
   align-items: center;
   gap: 24px;
+  border: 0;
+  background: none;
+  line-height: 1.4;
 }
 
 .site-nav a {
@@ -740,6 +744,11 @@ button:focus-visible {
   font-weight: 750;
 }
 
+.method-note p.method-note__aside {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* Article */
 
 .article-shell {
@@ -902,7 +911,7 @@ button:focus-visible {
 
 .article-toc a {
   display: block;
-  padding: 8px 0;
+  padding: 8px 0 8px 10px;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.35;
@@ -913,8 +922,13 @@ button:focus-visible {
   color: var(--accent-dark);
 }
 
+.article-toc a[aria-current="location"] {
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .article-toc__subitem a {
-  padding-left: 12px;
+  padding-left: 22px;
 }
 
 .article-body {
@@ -945,7 +959,7 @@ button:focus-visible {
   color: var(--ink);
   font-weight: 750;
   letter-spacing: -0.03em;
-  scroll-margin-top: 96px;
+  scroll-margin-top: 24px;
 }
 
 .article-body h2 {
@@ -1514,7 +1528,8 @@ button:focus-visible {
     grid-template-columns: 1fr 1.6fr;
   }
 
-  .method-note > a {
+  .method-note > a,
+  .method-note > .method-note__aside {
     grid-column: 2;
   }
 
@@ -1540,6 +1555,9 @@ button:focus-visible {
     break-inside: avoid;
   }
 
+}
+
+@media (max-width: 1199px) {
   .table-block {
     width: 100%;
     margin-right: 0;
@@ -1561,8 +1579,7 @@ button:focus-visible {
   }
 
   .site-title small,
-  .site-nav a:first-child,
-  .site-nav a:last-child {
+  .site-nav a.site-nav__optional {
     display: none;
   }
 
@@ -1673,7 +1690,8 @@ button:focus-visible {
     padding: 26px;
   }
 
-  .method-note > a {
+  .method-note > a,
+  .method-note > .method-note__aside {
     grid-column: auto;
   }
 

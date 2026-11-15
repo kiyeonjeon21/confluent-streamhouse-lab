@@ -9,13 +9,14 @@ takeaways:
   - label: "Observed"
     text: "Derived state became visible after 44.3 seconds at p50 and 68.2 seconds at maximum; throughput reached 40.6 req/s at 32 clients with no errors."
   - label: "Interpretation"
-    text: "Flink wrote output in 2.6 seconds at p50, but commit visibility at 38.5 seconds dominated the end-to-end freshness path."
+    text: "Flink wrote output in 2.6 seconds at p50, but its exactly-once commit, documented at about once a minute, held it until 38.5 seconds."
   - label: "Limitation"
-    text: "The runs used 10,000 rows and a Seoul client; they do not isolate in-region latency, service-side saturation, or scan scaling."
+    text: "One configuration: default exactly-once delivery, 10,000 rows, and a Seoul client. The runs do not isolate in-region latency, service-side saturation, or scan scaling."
 ---
 
 According to the [Lightning Tables documentation](https://docs.confluent.io/cloud/current/lightning-tables/overview.html), a table updates within 100 ms of new data arriving in its topic.
 That number covers only the serving layer.
+Confluent's [delivery guarantees page](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html) documents another part of the path: Flink writes to Kafka in transactions that commit approximately every minute, so under the default exactly-once guarantee, each statement whose output a consumer reads adds up to about a minute.
 An application cares about the whole path, from a source change through Flink to a read of the derived state, so that's what I measured.
 
 ## Setup
@@ -30,6 +31,7 @@ An application cares about the whole path, from a source change through Flink to
 | Network | 190 to 210 ms TCP connect to the MCP host, measured before and after every run |
 
 Every latency below includes that trans-Pacific round trip.
+The results describe this configuration, with one materialized table between the source topic and Lightning and Flink's default exactly-once delivery; they are not general limits of a Streamhouse.
 The percentiles are nearest-rank, so each one is a value I actually observed.
 
 ## Freshness experiment design
@@ -115,7 +117,8 @@ Using the brokers' own timestamps, without my laptop's clock involved, the same 
 
 Most of the time is spent waiting for the commit.
 Committed output became visible 11 to 62 seconds after the write.
-Flink commits its Kafka transaction about once a minute, and any reader that only sees committed data has to wait for it, Lightning included.
+That matches the documented commit about once a minute, and the 61-second steps in the first run.
+In all 30 samples, Lightning served the change only after the commit, so for this output it behaved like a reader of committed data.
 
 After the commit, Lightning took another 3 to 7 seconds.
 This experiment can't observe where Confluent marks data as having arrived for the documented 100 ms target.
@@ -124,11 +127,13 @@ What it can show is that for this transactional Flink output, 3 to 7 seconds pas
 So E1's "fixed 17 seconds" is the fastest commit, about 11 seconds after the write, plus about 5 seconds in Lightning.
 The two runs also agree on the total: a median of 44.3 seconds here and 46.1 in the first measurement.
 
-**Observed.** On this setup, a source change showed up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average. At p50, Flink had written the output after 2.6 seconds, but the transaction was not committed until 38.5 seconds.
+**Observed.** On this setup, a source change showed up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average. At p50, Flink had written the output after 2.6 seconds, the transaction was committed by 38.5 seconds, and Lightning served it by 44.3 seconds.
 
-**Interpretation.** The serving query was not the dominant delay. Nearly all of the wait was for Flink to commit, so the commit interval is the first setting to investigate when derived state is not fresh enough.
+**Explained.** The commit wait is most of the delay, and it's documented behavior: exactly-once output commits about once a minute. The `read_committed` consumer measured that wait directly, so tuning the join or the serving query would not have shortened it. The documentation describes no setting for the commit interval; it says Confluent is working on lowering exactly-once latency and suggests contacting support if you need less.
 
-**Limitation.** This experiment cannot observe where Confluent marks data as having arrived for the documented 100 ms serving target; it measures the externally visible path from broker acknowledgement to a successful query.
+**Not explained.** Where the 3 to 7 seconds between commit and Lightning visibility go. The documented 100 ms starts when data arrives in the topic, and this experiment can't see when Confluent considers transactional output to have arrived.
+
+**Limitation.** One configuration, 30 samples per run, from a client in Seoul. I didn't test at-least-once delivery, pipelines with more than one Flink statement, or an in-region client.
 
 ## Query latency by shape
 
@@ -182,9 +187,9 @@ My recorded runs sent about 5,830 queries to `bench_passenger_state`: 2,952 E1 p
 
 **Observed.** Dividing 7.96 GB by 5,830 gives about 1.4 MB per query on a 10,000-row table, and most of those queries were single-row lookups by primary key.
 
-**Interpretation.** That is consistent with each query reading most or all of the table instead of going straight to one key.
+**Hypothesis.** That is consistent with each query reading most or all of the table instead of going straight to one key.
 
-**Limitation.** The console lists the table's size as 0 B, so these numbers cannot confirm that interpretation.
+**Limitation.** The console lists the table's size as 0 B, and Confluent doesn't document how lookups scan, so these numbers can't confirm the hypothesis.
 
 If it's true, it affects cost.
 Lightning compute is billed in CCUs, and [one CCU covers up to 80 GB scanned per hour](https://docs.confluent.io/cloud/current/ai/real-time-context-engine/billing.html) (you pay for whichever meter is highest).
@@ -224,7 +229,7 @@ This is a closed loop: N workers, each with its own MCP session, each sending it
 
 **Observed.** Throughput grew linearly through 16 clients. At 32 it reached 40.6 req/s with no failures or rate-limit errors, while median latency rose by about 130 ms.
 
-**Interpretation.** The 32-client result fell short of the roughly 46 req/s implied by linear scaling, which suggests the first sign of a bottleneck.
+**Interpretation.** The 32-client result fell short of the roughly 46 req/s implied by linear scaling, which may be the first sign of a bottleneck on either side of the connection.
 
 **Limitation.** All 32 workers shared one Python process on a laptop in Seoul. Clients in several processes or inside the region are needed before attributing the slowdown to the service.
 

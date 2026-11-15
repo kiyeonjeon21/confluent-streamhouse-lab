@@ -8,8 +8,8 @@ layout: landing
   <div class="home-hero__copy">
     <p class="eyebrow">Seven chapters · One reproducible lab · Measured from Seoul</p>
     <h1>How real-time is a Streamhouse?</h1>
-    <p class="home-hero__dek">I rebuilt Confluent's River Air Streamhouse as Terraform, version-controlled Flink SQL, and automated tests—then measured the path from a Kafka write to derived state, Iceberg history, and an AI agent.</p>
-    <p class="home-hero__summary">The architecture worked. The surprise was time: derived state reached Lightning Tables in <strong>44.3 seconds at p50</strong>, with most of the wait inside Flink's transaction commit.</p>
+    <p class="home-hero__dek">I rebuilt Confluent's River Air Streamhouse as Terraform, version-controlled Flink SQL, and automated tests, then measured the path from a Kafka write to derived state, Iceberg history, and an AI agent.</p>
+    <p class="home-hero__summary">The architecture worked. The surprise was time: in this setup, derived state reached Lightning Tables in <strong>44.3 seconds at p50</strong>, and most of the wait was Flink's exactly-once commit, which Confluent documents at about once a minute.</p>
     <div class="home-hero__actions">
       <a class="button button--primary" href="{{ '/01-the-lab.html' | relative_url }}">Start with the lab</a>
       <a class="button" href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}">See the benchmarks</a>
@@ -20,7 +20,7 @@ layout: landing
     <dl>
       <div><dt>Environment</dt><dd>AWS <code>us-east-1</code></dd></div>
       <div><dt>Cluster</dt><dd>Confluent Basic</dd></div>
-      <div><dt>Dataset</dt><dd>10,000 passengers</dd></div>
+      <div><dt>Benchmark data</dt><dd>10,000 passengers</dd></div>
       <div><dt>Client</dt><dd>Seoul · ~190 ms away</dd></div>
       <div><dt>Run date</dt><dd>November 15, 2026</dd></div>
     </dl>
@@ -46,7 +46,7 @@ layout: landing
       <p class="section-label">Measured, not estimated</p>
       <h2 id="measured-title">The numbers that changed the conclusion</h2>
     </div>
-    <p>Each figure comes from the experiments in Chapter 6. The article includes the method, sample size, raw distributions, and limitations.</p>
+    <p>The first three figures come from the benchmarks in Chapter 6 and the Iceberg timing from Chapter 4. All of them describe one configuration: a Basic cluster in <code>us-east-1</code>, measured from Seoul. The chapters include the method, sample size, raw distributions, and limitations.</p>
   </div>
   <div class="metric-grid">
     <article class="metric-card metric-card--primary">
@@ -67,7 +67,7 @@ layout: landing
     <article class="metric-card">
       <span class="metric-card__value">4.5<span>min</span></span>
       <strong>First Iceberg data</strong>
-      <p>A low-throughput topic reached its third snapshot with all six source rows.</p>
+      <p>From enabling Tableflow to all six source rows in Iceberg, on a low-throughput topic.</p>
     </article>
   </div>
 </section>
@@ -104,7 +104,7 @@ layout: landing
       <span class="finding-columns__mark finding-columns__mark--caution" aria-hidden="true">!</span>
       <h3>The constraints matter</h3>
       <ul>
-        <li>Derived state arrived in tens of seconds, not sub-second time.</li>
+        <li>Derived state arrived in tens of seconds, because exactly-once output commits about once a minute.</li>
         <li>A Basic cluster could not give the MCP reader least privilege.</li>
         <li>The official materialized-table query raised two CRITICAL warnings.</li>
       </ul>
@@ -128,6 +128,10 @@ layout: landing
     <p class="section-label">Method</p>
     <h2 id="method-title">Built to be challenged and repeated</h2>
   </div>
-  <p>The lab uses Terraform, version-controlled SQL, about 140 automated tests, and separate benchmark tables. Every measured chapter states its sample size and what the run could not prove. The environment was torn down between sessions and can be rebuilt from the repository.</p>
+  <p>The lab uses Terraform, version-controlled SQL, separate benchmark tables, 137 offline unit tests, and six live tests that check each capability against a real deployment. Every measured chapter states its sample size and what the run could not prove. The environment was torn down between sessions and rebuilt from code.</p>
+  {%- if site.repository_public %}
   <a href="{{ site.repository_url }}">Inspect the repository <span aria-hidden="true">→</span></a>
+  {%- else %}
+  <p class="method-note__aside">The lab's repository is private for now.</p>
+  {%- endif %}
 </section>

@@ -3,7 +3,7 @@
   <a class="chapter-card" href="{{ chapter.url | relative_url }}">
     <span class="chapter-card__number">0{{ chapter.part }}</span>
     <span class="chapter-card__label">{{ chapter.label }}</span>
-    <strong>{{ chapter.title }}</strong>
+    <strong>{{ chapter.title | smartify }}</strong>
     <span class="chapter-card__summary">{{ chapter.summary }}</span>
     <span class="chapter-card__link">Read chapter <span aria-hidden="true">→</span></span>
   </a>

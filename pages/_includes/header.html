@@ -1,6 +1,6 @@
 {%- comment -%}
-  minima 2.5.1's header without the page navigation: the only page worth
-  linking from the header is the index, which the site title already links to.
+  Replaces minima 2.5.1's header and its hamburger page list with a short,
+  fixed navigation. Links marked site-nav__optional are hidden on phones.
 {%- endcomment -%}
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
@@ -13,10 +13,12 @@
       </span>
     </a>
     <nav class="site-nav" aria-label="Primary navigation">
-      <a href="{{ '/' | relative_url }}"{% if page.url == '/' %} aria-current="page"{% endif %}>Overview</a>
+      <a class="site-nav__optional" href="{{ '/' | relative_url }}"{% if page.url == '/' %} aria-current="page"{% endif %}>Overview</a>
       <a href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}"{% if page.part == 6 %} aria-current="page"{% endif %}>Benchmarks</a>
       <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}"{% if page.part == 7 %} aria-current="page"{% endif %}>Verdict</a>
-      <a href="{{ site.repository_url }}">GitHub</a>
+      {%- if site.repository_public %}
+      <a class="site-nav__optional" href="{{ site.repository_url }}">GitHub</a>
+      {%- endif %}
     </nav>
   </div>
 </header>
