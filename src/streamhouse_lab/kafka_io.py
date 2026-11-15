@@ -246,4 +246,4 @@ def truncate(config: LabConfig, topic: str) -> dict[int, int]:
     admin = AdminClient(client_config(config))
     metadata = admin.list_topics(topic, timeout=30).topics[topic]
     futures = admin.delete_records([TopicPartition(topic, p, OFFSET_END) for p in metadata.partitions])
-    return {tp.partition: future.result().offset for tp, future in futures.items()}
+    return {tp.partition: future.result().low_watermark for tp, future in futures.items()}

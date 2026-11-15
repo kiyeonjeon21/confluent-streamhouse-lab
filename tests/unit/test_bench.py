@@ -572,3 +572,15 @@ def test_hybrid_verdict_when_flink_reads_only_kafka(tmp_path: Path) -> None:
     assert result["verdict"] == "not shown"
     assert result["old_only_in_iceberg"] is True
     assert result["flink_read_iceberg_after_truncate"] is False
+
+
+def test_hybrid_resume_starts_from_observed_truncated_state(tmp_path: Path) -> None:
+    world = FakeWorld(True)
+    world.iceberg = sorted(bench.OLD_BATCH)  # an earlier run wrote, materialized, and truncated
+    rec = make_recorder(tmp_path)
+    result = bench.run_hybrid(world.steps(), rec, interval=0, sleep_sync=lambda _: None, resume=True)
+    rec.close()
+    assert result["verdict"] == "hybrid"
+    _, events = summarize.load(rec.path)
+    assert [e["step"] for e in events if e["kind"] == "step"] == ["kafka_truncated", "new_batch_written"]
+    assert world.kafka == sorted(bench.NEW_BATCH), "resume must not write the old batch again"

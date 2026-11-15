@@ -380,8 +380,12 @@ def run_hybrid(
     interval: float = 30.0,
     clock: Callable[[], float] = time.monotonic,
     sleep_sync: Callable[[float], None] = time.sleep,
+    resume: bool = False,
 ) -> dict:
     """Prove that a Flink snapshot query reads Iceberg for data that Kafka no longer has.
+
+    With `resume`, steps 1 and 2 are taken as already done (for example by a run that
+    stopped after truncating); the run starts by observing that state instead.
 
     1. Write an old batch; wait until Tableflow has it in Iceberg.
     2. Delete every record from the Kafka topic (DeleteRecords), as retention eventually would.
@@ -398,17 +402,19 @@ def run_hybrid(
         recorder.event("step", step=step, **state, **extra)
         return state
 
-    steps.write_old()
-    waited = wait_for(
-        lambda: OLD_BATCH <= set(steps.iceberg_ids()),
-        timeout=iceberg_timeout, interval=interval, clock=clock, sleep_sync=sleep_sync,
-    )  # fmt: skip
-    before = observe("old_batch_in_iceberg", waited_s=waited)
-    if waited is None:
-        return {"verdict": "inconclusive", "reason": "old batch never reached Iceberg", "before": before}
-
-    start_offsets = steps.truncate()
-    after_truncate = observe("kafka_truncated", start_offsets=start_offsets)
+    if resume:
+        after_truncate = observe("kafka_truncated", resumed=True)
+    else:
+        steps.write_old()
+        waited = wait_for(
+            lambda: OLD_BATCH <= set(steps.iceberg_ids()),
+            timeout=iceberg_timeout, interval=interval, clock=clock, sleep_sync=sleep_sync,
+        )  # fmt: skip
+        before = observe("old_batch_in_iceberg", waited_s=waited)
+        if waited is None:
+            return {"verdict": "inconclusive", "reason": "old batch never reached Iceberg", "before": before}
+        start_offsets = steps.truncate()
+        after_truncate = observe("kafka_truncated", start_offsets=start_offsets)
 
     steps.write_new()
     waited_new = wait_for(

@@ -91,9 +91,30 @@ The lab's live test now asserts both paths: the Flink aggregate and the rows in 
   Its tables are reachable only through the Tableflow catalog with vended credentials, and they do not sync to external catalogs such as AWS Glue.
   For Glue or Athena you need your own bucket.
 
-## Still open
+## Proving the hybrid read
 
-I have not proven that Flink's snapshot query read Iceberg rather than Kafka, only that Iceberg holds the right data.
-Showing the hybrid read needs records older than the topic's Kafka retention.
+So far Iceberg held the right data, but nothing showed that Flink ever read it.
+The clean test is to make Kafka forget the data, then ask Flink again.
+
+Waiting for retention is not practical on Confluent Cloud: Kafka deletes only closed log segments, and the minimum `segment.ms` there is four hours.
+The Kafka `DeleteRecords` API does the same thing immediately, by moving the topic's start offset past every existing record.
+
+On a separate table, `hybrid_flight_history`, I wrote an old batch, waited until Tableflow had it in Iceberg (about 4 minutes), deleted its Kafka records, and wrote a new batch.
+At each step a script looked at three things: a Kafka consumer reading from the start of the topic, the Iceberg table through pyiceberg, and a Flink snapshot query.
+
+| Step | Kafka | Iceberg | Flink snapshot query |
+|---|---|---|---|
+| Old batch materialized | OLD-1..4 | OLD-1..4 | OLD-1..4 |
+| Kafka records deleted | nothing | OLD-1..4 | OLD-1..4 |
+| New batch written | NEW-1, NEW-2 | OLD-1..4 | OLD-1..4, NEW-1, NEW-2 |
+
+The second row shows Flink reading Iceberg: Kafka had nothing left, and the old rows came back anyway.
+The third row is the hybrid read.
+The old rows existed only in Iceberg, the new rows only in Kafka, since Tableflow had not caught up with them yet, and one snapshot query returned all six, 6.6 seconds after the new batch was written.
+
+Deleting the Kafka records did not touch the Iceberg table.
+That is what lets a topic keep a short, cheap retention while queries still see the full history.
+
+The first attempt of this run stopped right after the deletion because my code read the wrong field of the `DeleteRecords` response; the deletion itself had succeeded, so I checked the topic's watermarks and resumed from that state instead of writing the old batch twice.
 
 Next: [A streaming agent grounded in live state](05-a-streaming-agent-grounded-in-live-state.md).

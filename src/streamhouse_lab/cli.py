@@ -246,7 +246,7 @@ def cmd_bench(args: argparse.Namespace) -> int:
                     for watcher in watchers.values():
                         watcher.stop()
             elif args.action == "hybrid":
-                run_hybrid_experiment(cfg, recorder)
+                run_hybrid_experiment(cfg, recorder, resume=args.resume)
 
         asyncio.run(run())
         recorder.event("net", phase="after", host=host, **measure.probe_network(host))
@@ -262,7 +262,7 @@ def cmd_bench(args: argparse.Namespace) -> int:
     return 0
 
 
-def run_hybrid_experiment(cfg: config.LabConfig, recorder) -> None:
+def run_hybrid_experiment(cfg: config.LabConfig, recorder, *, resume: bool = False) -> None:
     """Wire the hybrid-read experiment to the real Kafka, Iceberg, and Flink."""
     from streamhouse_lab import bench, iceberg, kafka_io
 
@@ -283,7 +283,7 @@ def run_hybrid_experiment(cfg: config.LabConfig, recorder) -> None:
             flink_ids=flink_ids,
             truncate=lambda: kafka_io.truncate(cfg, table),
         )
-        result = bench.run_hybrid(steps, recorder)
+        result = bench.run_hybrid(steps, recorder, resume=resume)
     print(result)
 
 
@@ -362,6 +362,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--levels", default="1,2,4,8,16,32", help="e4: concurrency levels")
     p.add_argument("--duration", type=float, default=30.0, help="e4: seconds per level")
     p.add_argument("--metric", default="latency_ms", help="summarize: field to summarize")
+    p.add_argument("--resume", action="store_true", help="hybrid: start after the old batch was truncated")
     p.set_defaults(func=cmd_bench)
 
     p = sub.add_parser("agent-connection", help="manage the agent's MCP connection to the context engine")

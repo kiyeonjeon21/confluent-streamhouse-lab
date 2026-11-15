@@ -45,9 +45,10 @@ The promises against the evidence, the alternatives, where it fits, and where it
 |---|---|
 | Kafka source tables, Flink joins, a materialized table | Matched the quick start exactly |
 | Lightning Tables over MCP | Worked, but on a Basic cluster only with an admin role |
-| Tableflow to Iceberg | Rows reached Iceberg about 4.5 minutes after enabling |
+| Tableflow to Iceberg | Rows reached Iceberg about 4 minutes after arriving |
+| Hybrid read, Iceberg history plus Kafka tail | Proven: one Flink query returned rows that existed only in Iceberg and rows only in Kafka |
 | Streaming agent | Both at-risk passengers got the expected rebooking offers |
-| Freshness, source change to Lightning read | 18 to 68 s, median 46 s (n = 30) |
+| Freshness, source change to Lightning read | 18 to 68 s, median 44 to 46 s (two runs of 30); mostly waiting for Flink's once-a-minute commit, then 3 to 7 s for Lightning |
 | Lightning query latency from Seoul to us-east-1 | About 690 ms median, of which about 190 ms is network |
 | Concurrency | Linear to 16 clients, 40.6 req/s at 32, no errors |
 

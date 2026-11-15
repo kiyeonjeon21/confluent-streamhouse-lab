@@ -81,6 +81,7 @@ Method: a log kept during the lab of every manual step, every surprise, and ever
 
 Built and unit tested on 2026-11-15 ([`tests/unit/test_bench.py`](../../tests/unit/test_bench.py)).
 First runs of E1, E3, and E4: [2026-11-15-first-runs.md](2026-11-15-first-runs.md).
+E2 and the hybrid read: [2026-11-15-e2-and-hybrid.md](2026-11-15-e2-and-hybrid.md).
 
 | Piece | Where | What it guarantees |
 |---|---|---|

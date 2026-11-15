@@ -23,7 +23,7 @@ What was verified before building, including limits and prices: [docs/discovery.
 
 - Phase 1 (discovery) and Phase 2 (repository) are done.
 - Phase 3 is done: all six capabilities passed on 2026-11-15 in us-east-1 on a Basic cluster; the full live suite runs in about 3 minutes.
-- Phase 4 (evaluation): E1, E3, and E4 have run once from a client in Seoul; see [first runs](docs/experiments/2026-11-15-first-runs.md). E2 and E5 to E7 are not started.
+- Phase 4 (evaluation): E1 to E4 and the hybrid-read experiment have run from a client in Seoul; see [first runs](docs/experiments/2026-11-15-first-runs.md) and [E2 and the hybrid read](docs/experiments/2026-11-15-e2-and-hybrid.md). E5 to E7 are not started.
 - The lab was torn down on 2026-11-15 with `scripts/cleanup`; everything above can be rebuilt from this repository in about 15 minutes.
 - [docs/plan.md](docs/plan.md) lists each billable step and what it creates.
 - Capability results are recorded in [docs/capabilities](docs/capabilities/README.md) as they are run.

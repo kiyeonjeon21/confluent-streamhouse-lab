@@ -69,11 +69,44 @@ So the data fit a simple model:
 
 > freshness ≈ about 17 s fixed + the wait for the next commit, between 0 and about 61 s
 
-That is an interpretation of 30 samples, not a proven breakdown.
-Splitting the fixed 17 seconds between Flink, transactional visibility, and Lightning is the next experiment: read the materialized table's output topic directly with a Kafka consumer, which takes Lightning out of the path.
+That was an interpretation, so I measured the stages directly.
 
-**In practice:** on this setup, a source change shows up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average.
-Lightning's 100 ms is real, but it is not the number that decides freshness here; Flink's commit interval is.
+## Where the time goes
+
+A second run repeated the same method with two Kafka consumers watching the materialized table's output topic on background threads.
+One reads with `isolation.level=read_uncommitted` and sees Flink's write the moment it lands; the other reads `read_committed` and sees it only once Flink's transaction commits.
+So each write is observed three times: written, committed, and served by Lightning.
+
+30 samples, no errors, seconds after the broker acknowledged the source write:
+
+| Stage | min | p50 | p95 | max | mean |
+|---|---|---|---|---|---|
+| Flink wrote the output | 0.2 | 2.6 | 4.8 | 5.0 | 2.7 |
+| Output committed | 11.3 | 38.5 | 61.1 | 61.8 | 36.7 |
+| Visible in Lightning | 17.5 | 44.3 | 66.9 | 68.2 | 42.8 |
+
+And the hops between them, per sample:
+
+| Hop | min | p50 | max |
+|---|---|---|---|
+| Written to committed | 7.1 | 36.9 | 57.5 |
+| Committed to visible in Lightning | 3.2 to 5.0 | 4.4 to 6.1 | 5.3 to 7.1 |
+
+The Lightning hop is shown as a range: the first number is when a query that started after the commit still missed the row, the second when a query first returned it.
+
+Three things fall out:
+
+- **Flink's write step is the 5-second sink flush.** Output appeared 0 to 5 seconds after the input, 2.7 on average, which is exactly what uniform arrivals into a 5-second buffer give.
+  Measured on the brokers' own timestamps, without my laptop's clock, the same step was 2.5 seconds at the median.
+- **The commit is where the time goes.** Committed output became visible 11 to 62 seconds after the write: Flink commits its Kafka transaction about once a minute, and every reader that only sees committed data, Lightning included, waits for it.
+- **Lightning added 3 to 7 seconds after the commit**, not 100 milliseconds.
+  The documented figure may well hold for plain, non-transactional topics; for a Flink materialized table's transactional output, measured from when the commit became visible, it was seconds.
+
+So E1's "fixed 17 seconds" is the fastest commit, about 11 seconds after the write, plus about 5 seconds of Lightning.
+The totals agreed across runs too: median 44.3 seconds here against 46.1 in the first measurement.
+
+**In practice:** on this setup, a source change shows up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average, and almost all of it is waiting for Flink to commit.
+If you need fresher derived state, the commit interval is the setting to look for, not Lightning.
 
 ## Query latency by shape
 

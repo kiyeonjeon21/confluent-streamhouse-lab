@@ -42,16 +42,17 @@ Here is how each held up.
 **Held, with a time unit to be aware of.**
 `passenger_state` was defined once.
 The bounded join computed the same connection times, the Lightning reads and the agent saw the same passengers and risk flags, and a delay flipped two of them to `AT_RISK` without anyone touching the definition ([part 3](03-materialized-tables-in-practice.md)).
-The caveat is how that state moves: derived state reached readers in steps about 61 seconds apart, at Flink's commit interval ([part 6](06-how-fresh-is-real-time.md)).
+The caveat is how that state moves: derived state reached readers in steps about a minute apart, because Flink commits its output transaction about once a minute, and Lightning added 3 to 7 seconds after each commit ([part 6](06-how-fresh-is-real-time.md)).
 "Consistent" here means everyone agrees; it does not mean everyone is a few milliseconds behind the source.
 
 ### 2. Decide across the last five seconds and the last five years
 
-**Half shown.**
+**Shown, with "seconds" meaning tens of seconds.**
 The "seconds" half took 18 to 68 seconds, about 42 on average, from a source write to a Lightning read of the derived state.
 That is real-time for an operations team and slow for a checkout page.
-The "years" half is promising but not finished: Tableflow put the data in Iceberg about 4.5 minutes after it was enabled, and pyiceberg read it directly ([part 4](04-proving-tableflow-wrote-iceberg.md)).
-What I did not show is the hybrid read, one Flink snapshot query that takes old data from Iceberg and new data from Kafka, and I did not query the Iceberg tables from an external analytics engine.
+The "years" half works: Tableflow put the data in Iceberg about 4 minutes after it arrived, pyiceberg read it directly, and after I deleted the Kafka copy, one Flink snapshot query returned the old rows from Iceberg together with new rows that existed only in Kafka ([part 4](04-proving-tableflow-wrote-iceberg.md)).
+That hybrid read is the mechanism behind "five seconds and five years" in one query.
+What I did not do is query the Iceberg tables from an external analytics engine at scale.
 
 ### 3. Ground and adapt an AI agent
 
@@ -78,7 +79,7 @@ From what the lab showed, a Streamhouse on Confluent Cloud fits well when:
 
 ## Where it does not, yet
 
-- **Sub-second freshness or read-your-own-write.** With a commit interval near a minute, a user who just changed something will not see it reflected in derived state.
+- **Sub-second freshness or read-your-own-write.** Flink commits derived state about once a minute and Lightning adds seconds on top, so a user who just changed something will not see it reflected in derived state.
 - **Analytical queries on the serving layer.** Lightning returns at most 200 rows per MCP query and rejects aggregates, `GROUP BY`, and joins; that work belongs in Flink or in an engine reading Iceberg.
 - **High-rate lookups on large tables, until measured.** On 10,000 rows, each query scanned about 1.4 MB, roughly the whole table, and Lightning bills compute partly by bytes scanned. If that scales with table size, heavy point-lookup traffic could get expensive. This is the first thing I would test before committing.
 - **Least privilege on the cheapest cluster.** If agents must hold read-only credentials, budget for a Standard cluster.
@@ -97,8 +98,7 @@ An idle Basic cluster, compute pool, and Schema Registry cost nothing, which mad
 
 ## What I would still want to know
 
-- **Where the fixed 17 seconds of freshness go**, by reading the materialized table's output topic directly and taking Lightning out of the path.
-- **Whether the hybrid read works**, with data older than the topic's retention.
+- **Whether the commit interval can be shortened** on Confluent Cloud, and what that costs in CFUs.
 - **How scanned bytes and latency scale** at 100,000 rows and beyond, from a client inside the region.
 - **What evolution and failure look like**: changing a materialized table in place, stopping it under load, and breaking a schema.
 - **The real bill** for each of the above.
