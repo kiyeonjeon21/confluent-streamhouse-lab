@@ -212,6 +212,7 @@ def cmd_bench(args: argparse.Namespace) -> int:
                     await bench.run_freshness(
                         session, producer, recorder, datagen.probe_flight(dataset),
                         samples=args.samples, poll_interval=args.poll, gap=args.gap,
+                        jitter=args.jitter, seed=args.seed,
                     )  # fmt: skip
             elif args.action == "e3":
                 async with engine.session() as session:
@@ -296,7 +297,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--location", default="unspecified", help="where the client runs, e.g. seoul-laptop")
     p.add_argument("--samples", type=int, default=30, help="e1: freshness samples")
     p.add_argument("--poll", type=float, default=0.25, help="e1: seconds between polls")
-    p.add_argument("--gap", type=float, default=5.0, help="e1: seconds between samples")
+    p.add_argument("--gap", type=float, default=5.0, help="e1: minimum seconds between samples")
+    p.add_argument(
+        "--jitter",
+        type=float,
+        default=60.0,
+        help="e1: extra uniform random wait, at least the commit interval",
+    )
     p.add_argument("--repeat", type=int, default=100, help="e3: rounds of every query shape")
     p.add_argument("--levels", default="1,2,4,8,16,32", help="e4: concurrency levels")
     p.add_argument("--duration", type=float, default=30.0, help="e4: seconds per level")

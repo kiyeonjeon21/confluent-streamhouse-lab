@@ -353,3 +353,44 @@ def test_concurrency_stops_when_errors_exceed_threshold(tmp_path: Path) -> None:
 def test_api_key_repr_in_producer_never_leaks() -> None:
     key = ApiKey("K", Secret(FAKE_SECRET))
     assert FAKE_SECRET not in repr(key)
+
+
+def test_freshness_spaces_writes_with_seeded_jitter(tmp_path: Path) -> None:
+    data = datagen.generate(10, 1)
+    flight = datagen.probe_flight(data)
+    waits: list[float] = []
+
+    async def record_sleep(seconds: float) -> None:
+        waits.append(seconds)
+
+    def fresh_for(sample: int) -> dict:
+        value = datagen.marker_update(flight, sample).value["estimated_time"].strftime(bench.TIMESTAMP_TEXT)
+        return lightning_payload([[value]])
+
+    class Session:
+        def __init__(self):
+            self.sample = 0
+
+        async def query(self, topic, sql, max_result_rows=50):
+            return ToolCall("queryData", {}, False, fresh_for(self.sample), 1.0)
+
+    session = Session()
+    rec = make_recorder(tmp_path)
+
+    def send_one(record):
+        session.sample = (
+            int((record.value["estimated_time"] - flight.value["scheduled_time"]).seconds // 60) - 1
+        )
+        return kafka_io.Ack("t", 0, 0, rec.now())
+
+    run = bench.run_freshness(
+        session, SimpleNamespace(send_one=send_one), rec, flight, samples=20,
+        gap=5, jitter=60, seed=3, sleep=record_sleep,
+    )  # fmt: skip
+    asyncio.run(run)
+    rec.close()
+    assert len(waits) == 20
+    assert all(5 <= w <= 65 for w in waits)
+    assert max(waits) - min(waits) > 20, "jitter must spread write times"
+    _, events = summarize.load(rec.path)
+    assert [e["seconds"] for e in events if e["kind"] == "gap"] == waits

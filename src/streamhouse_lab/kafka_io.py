@@ -50,6 +50,8 @@ def producer_config(config: LabConfig) -> dict:
         "acks": "all",
         "enable.idempotence": True,
         "linger.ms": 5,
+        # librdkafka logs telemetry and connection details at info (6); keep warnings and above.
+        "log_level": 4,
     }
 
 

@@ -69,6 +69,8 @@ async def run_freshness(
     poll_interval: float = 0.25,
     timeout: float = 180.0,
     gap: float = 5.0,
+    jitter: float = 60.0,
+    seed: int = 0,
     sleep: Sleep = asyncio.sleep,
 ) -> None:
     """Write a uniquely valued update, then poll Lightning until the derived row shows it.
@@ -77,7 +79,15 @@ async def run_freshness(
     `not_seen_before_ms` (start of the last poll that did not see it) and
     `seen_by_ms` (end of the first poll that did). The true visibility time lies
     between them; the gap is the measurement resolution.
+
+    Writes are spaced by `gap` plus a seeded uniform random `jitter`. Without it,
+    every write lands right after the previous one became visible, which is just
+    after a Flink commit, so every sample measures nearly a full commit interval
+    (observed 2026-11-15: 29 of 30 samples at 55 to 60 s with a fixed 5 s gap).
+    The jitter should be at least the commit interval so write times are spread
+    uniformly across it.
     """
+    rng = random.Random(seed)  # noqa: S311 - reproducible spacing, not security
     query = probe_query()
     for sample in range(samples):
         update = datagen.marker_update(probe_flight, sample)
@@ -117,7 +127,9 @@ async def run_freshness(
                 )
                 break
             await sleep(poll_interval)
-        await sleep(gap)
+        wait = gap + rng.uniform(0, jitter)
+        recorder.event("gap", sample=sample, seconds=wait)
+        await sleep(wait)
 
 
 # -- E3: query latency by shape ----------------------------------------------
