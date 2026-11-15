@@ -57,18 +57,32 @@ Expected: `P-001` and `P-002` both `SUCCESS` with `OFFER1=RA226;OFFER2=RA232;HOT
 RA214 is skipped because it leaves only 40 minutes after landing; the hotel is added because RA232 leaves the next morning.
 The model may add a sentence before the offer line.
 
-Actual: **not run yet**.
+Actual (2026-11-15, us-east-1, Basic cluster, `uv run lab check agent` and `scripts/verify-live capability_6`): **matches**.
+
+```
+passenger_id  agent_status  response
+P-001         SUCCESS       The first available hotel alphabetically is **Harbor Point Hotel**.\n\nOFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel
+P-002         SUCCESS       The first hotel alphabetically with available rooms is **Harbor Point Hotel**.\n\nOFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel
+```
+
+The full live suite, all six capabilities in order, passed in 3 min 10 s.
 
 ## Issues, limitations, and lessons learned
 
+Observed on the first run:
+
+- **A service account's Global API key works for the Flink MCP connection.** The quick start uses a user-owned key; the context reader's Terraform-managed key behaves the same and spends none of the user's two Global key slots.
+- **The model added a sentence before the offer line in both runs**, exactly as the quick start warns. Anything that consumes the response must search for the `OFFER1=` line rather than parse the whole field; the live test does.
+- **One `AI_RUN_AGENT` snapshot query for two passengers took about 26 s** end to end, including snapshot start-up, model calls, and MCP tool calls (n = 2 runs, 24 to 26 s). Per-call tool counts are not exposed in the result; Phase 4 E5 needs another source for them.
+- `SHOW MODELS` in us-east-1 lists `system.anthropic.claude-sonnet-4-6`, `claude-opus-4-6`, `claude-opus-4-7`, `claude-opus-4-8`, `claude-haiku-4-5`, three Amazon Nova models, `gpt-oss-safeguard-120b`, and `titan-embed-text-v2`.
+- `confluent flink connection describe -o json` does not return the password; its `data` field is a short masked value.
+- The CLI still receives the secret as a command-line argument when the connection is created.
+
 Known before running:
 
-- `AI_RUN_AGENT` reads only append-only input.
-- The CLI takes the connection's secret as an argument, so it is briefly visible in the local process table.
-- Resolved in capability 4: on a Basic cluster the context reader needs `CloudClusterAdmin` on the cluster; `DeveloperRead` is rejected and ACLs are ignored.
-- Open question: the quick start creates the Global key for the user account. Does a service account's Global key work identically for the Flink connection?
+- `AI_RUN_AGENT` reads only append-only input, hence `rebooking_requests`.
+- On a Basic cluster the context reader holds `CloudClusterAdmin` (see [capability 4](04-lightning-tables.md)), so the agent's credential is broader than read-only, even though the MCP tools it can call are read-only.
 
-To record after the first run:
+Still to try:
 
-- Agent latency per passenger and number of tool calls.
-- Whether wording varies across runs and whether the offer line stays parseable.
+- Point an external MCP client (Claude Code) at the same endpoint and ask the same question, to compare an external agent with the in-Flink agent (Phase 4 E5).

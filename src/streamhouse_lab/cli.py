@@ -22,11 +22,12 @@ from streamhouse_lab.flink import FlinkClient, QueryResult
 
 def print_table(result: QueryResult) -> None:
     columns = result.columns or [f"col{i}" for i in range(len(result.rows[0]) if result.rows else 0)]
-    cells = [[("NULL" if v is None else str(v)) for v in row] for row in result.rows]
+    # Keep one physical line per row: model output often contains newlines.
+    cells = [[("NULL" if v is None else str(v).replace("\n", "\\n")) for v in row] for row in result.rows]
     widths = [max([len(c), *(len(r[i]) for r in cells)]) for i, c in enumerate(columns)]
     for line in [columns, *cells]:
         print("  ".join(v.ljust(w) for v, w in zip(line, widths, strict=False)).rstrip())
-    print(f"({len(cells)} rows)")
+    print(f"({len(cells)} row{'' if len(cells) == 1 else 's'})")
 
 
 def cmd_doctor(_: argparse.Namespace) -> int:
