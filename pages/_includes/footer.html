@@ -3,19 +3,20 @@
   heading and again as the author when no author is set.
 {%- endcomment -%}
 <footer class="site-footer">
+  {%- assign locale = page.lang | default: 'en' -%}
   <div class="wrapper">
     <div class="site-footer__intro">
       <strong>{{ site.short_title }}</strong>
-      <p>{{ site.description | escape }}</p>
+      <p>{% if locale == 'ko' %}Kafka, Flink, Lightning Tables, Tableflow를 직접 구축하고 측정한 엔지니어링 리서치.{% else %}{{ site.description | escape }}{% endif %}</p>
     </div>
-    <nav class="site-footer__chapters" aria-label="Chapters">
+    <nav class="site-footer__chapters" aria-label="{% if locale == 'ko' %}전체 글{% else %}Chapters{% endif %}">
       {%- for chapter in site.data.chapters -%}
-      <a href="{{ chapter.url | relative_url }}"><span>0{{ chapter.part }}</span>{{ chapter.short_title }}</a>
+      <a href="{% if locale == 'ko' %}{{ chapter.ko_url | relative_url }}{% else %}{{ chapter.url | relative_url }}{% endif %}"><span>0{{ chapter.part }}</span>{% if locale == 'ko' %}{{ chapter.ko_short_title }}{% else %}{{ chapter.short_title }}{% endif %}</a>
       {%- endfor -%}
     </nav>
     <div class="site-footer__legal">
-      <p>An independent project, not affiliated with Confluent.</p>
-      <p>The scenario and SQL are adapted from Confluent's quick start and <a href="https://github.com/confluentinc/quickstart-streamhouse"><code>confluentinc/quickstart-streamhouse</code></a> (Apache-2.0).</p>
+      <p>{% if locale == 'ko' %}Confluent와 무관한 독립 프로젝트입니다.{% else %}An independent project, not affiliated with Confluent.{% endif %}</p>
+      <p>{% if locale == 'ko' %}시나리오와 SQL은 Confluent quick start 및 {% else %}The scenario and SQL are adapted from Confluent's quick start and {% endif %}<a href="https://github.com/confluentinc/quickstart-streamhouse"><code>confluentinc/quickstart-streamhouse</code></a> (Apache-2.0){% if locale == 'ko' %}를 바탕으로 했습니다.{% else %}.{% endif %}</p>
     </div>
   </div>
 </footer>

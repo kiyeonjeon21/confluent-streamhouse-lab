@@ -4,39 +4,74 @@
   short_title: The lab
   summary: The architecture, reproducible build, and six capabilities that passed.
   label: Architecture
+  ko_url: /ko/01-the-lab.html
+  ko_title: Terraform과 SQL로 Streamhouse 구축하기
+  ko_short_title: 실험실
+  ko_summary: 아키텍처와 재현 가능한 구축 과정, 검증을 통과한 여섯 가지 기능.
+  ko_label: 아키텍처
 - part: 2
   url: /02-basic-clusters-and-read-only-agents.html
   title: Basic clusters cannot hold a read-only agent
   short_title: Read-only agents
   summary: Why the cheapest cluster forces an MCP reader to hold an admin role.
   label: Access control
+  ko_url: /ko/02-basic-clusters-and-read-only-agents.html
+  ko_title: Basic 클러스터에서는 읽기 전용 에이전트를 만들 수 없다
+  ko_short_title: 읽기 전용 에이전트
+  ko_summary: Basic 클러스터의 권한 경계와 최소 권한 MCP 클라이언트가 실패한 이유.
+  ko_label: 접근 제어
 - part: 3
   url: /03-materialized-tables-in-practice.html
   title: Materialized tables in practice
   short_title: Materialized tables
   summary: A continuous query missing from the statement list, two CRITICAL warnings, and what sets freshness.
   label: Flink
+  ko_url: /ko/03-materialized-tables-in-practice.html
+  ko_title: Materialized Table 실전 운용
+  ko_short_title: Materialized Table
+  ko_summary: 계속 실행되는 쿼리, CRITICAL 경고, 실제 freshness를 결정하는 설정.
+  ko_label: Flink
 - part: 4
   url: /04-proving-tableflow-wrote-iceberg.html
   title: Proving that Tableflow wrote Iceberg
   short_title: Tableflow and Iceberg
   summary: Direct catalog reads and a destructive test that proves the Kafka–Iceberg hybrid path.
   label: History
+  ko_url: /ko/04-proving-tableflow-wrote-iceberg.html
+  ko_title: Tableflow가 Iceberg에 기록했음을 증명하기
+  ko_short_title: Tableflow와 Iceberg
+  ko_summary: 카탈로그 직접 조회와 Kafka–Iceberg 하이브리드 읽기를 입증한 삭제 실험.
+  ko_label: 히스토리
 - part: 5
   url: /05-a-streaming-agent-grounded-in-live-state.html
   title: A streaming agent grounded in live state
   short_title: Streaming agent
   summary: A managed Claude model looks up live flights and hotels over MCP and gets the rebooking right.
   label: AI agents
+  ko_url: /ko/05-a-streaming-agent-grounded-in-live-state.html
+  ko_title: 실시간 상태에 근거하는 스트리밍 에이전트
+  ko_short_title: 스트리밍 에이전트
+  ko_summary: 관리형 Claude 모델이 MCP로 항공편과 호텔을 조회해 재예약하는 과정.
+  ko_label: AI 에이전트
 - part: 6
   url: /06-how-fresh-is-real-time.html
   title: How fresh is "real time"?
   short_title: Freshness benchmarks
   summary: Freshness from a Kafka write to a Lightning read, query latency, scanned bytes, and concurrency.
   label: Benchmarks
+  ko_url: /ko/06-how-fresh-is-real-time.html
+  ko_title: “실시간”은 얼마나 최신인가?
+  ko_short_title: Freshness 벤치마크
+  ko_summary: Kafka 쓰기부터 Lightning 읽기까지의 freshness, 쿼리 지연, 스캔량, 동시성.
+  ko_label: 벤치마크
 - part: 7
   url: /07-is-a-streamhouse-worth-it.html
   title: Is a Streamhouse worth it?
   short_title: Is it worth it?
   summary: Where the architecture fits, where it does not, and what remains unproven.
   label: Conclusion
+  ko_url: /ko/07-is-a-streamhouse-worth-it.html
+  ko_title: Streamhouse는 도입할 가치가 있는가?
+  ko_short_title: 도입할 가치가 있는가?
+  ko_summary: 이 아키텍처가 맞는 영역과 맞지 않는 영역, 아직 검증하지 못한 것.
+  ko_label: 결론

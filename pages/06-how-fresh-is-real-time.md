@@ -3,6 +3,8 @@ title: How fresh is "real time"?
 description: Measured freshness from a Kafka write to a Lightning read, query latency by shape, and concurrency, plus the benchmark bug that doubled the first result.
 date: 2026-11-15
 part: 6
+lang: en
+alternate_url: /ko/06-how-fresh-is-real-time.html
 reading_time: 11
 sample: 30 freshness samples
 takeaways:

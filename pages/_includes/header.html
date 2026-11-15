@@ -2,23 +2,26 @@
   Replaces minima 2.5.1's header and its hamburger page list with a short,
   fixed navigation. Links marked site-nav__optional are hidden on phones.
 {%- endcomment -%}
-<a class="skip-link" href="#main-content">Skip to content</a>
+{%- assign locale = page.lang | default: site.lang | default: 'en' -%}
+{%- assign ui = site.data.ui[locale] -%}
+<a class="skip-link" href="#main-content">{{ ui.skip }}</a>
 <header class="site-header">
   <div class="wrapper">
-    <a class="site-title" rel="author" href="{{ '/' | relative_url }}">
+    <a class="site-title" rel="author" href="{% if locale == 'ko' %}{{ '/ko/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}">
       <span class="site-mark" aria-hidden="true">S</span>
       <span>
         <strong>{{ site.short_title | escape }}</strong>
-        <small>Confluent Cloud lab notes</small>
+        <small>{% if locale == 'ko' %}Confluent Cloud 실험 기록{% else %}Confluent Cloud lab notes{% endif %}</small>
       </span>
     </a>
-    <nav class="site-nav" aria-label="Primary navigation">
-      <a class="site-nav__optional" href="{{ '/' | relative_url }}"{% if page.url == '/' %} aria-current="page"{% endif %}>Overview</a>
-      <a href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}"{% if page.part == 6 %} aria-current="page"{% endif %}>Benchmarks</a>
-      <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}"{% if page.part == 7 %} aria-current="page"{% endif %}>Conclusion</a>
+    <nav class="site-nav" aria-label="{% if locale == 'ko' %}주요 메뉴{% else %}Primary navigation{% endif %}">
+      <a class="site-nav__optional" href="{% if locale == 'ko' %}{{ '/ko/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}"{% if page.part == nil %} aria-current="page"{% endif %}>{{ ui.overview }}</a>
+      <a href="{% if locale == 'ko' %}{{ '/ko/06-how-fresh-is-real-time.html' | relative_url }}{% else %}{{ '/06-how-fresh-is-real-time.html' | relative_url }}{% endif %}"{% if page.part == 6 %} aria-current="page"{% endif %}>{{ ui.benchmarks }}</a>
+      <a href="{% if locale == 'ko' %}{{ '/ko/07-is-a-streamhouse-worth-it.html' | relative_url }}{% else %}{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}{% endif %}"{% if page.part == 7 %} aria-current="page"{% endif %}>{{ ui.conclusion }}</a>
       {%- if site.repository_public %}
       <a class="site-nav__optional" href="{{ site.repository_url }}">GitHub</a>
       {%- endif %}
+      <a class="language-toggle" href="{{ page.alternate_url | relative_url }}" lang="{% if locale == 'ko' %}en{% else %}ko{% endif %}" hreflang="{% if locale == 'ko' %}en{% else %}ko{% endif %}">{% if locale == 'ko' %}EN{% else %}한국어{% endif %}</a>
     </nav>
   </div>
 </header>

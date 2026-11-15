@@ -3,6 +3,8 @@ title: A streaming agent grounded in live state
 description: A Flink agent on a managed Claude model reads Lightning Tables through the Real-Time Context Engine and rebooks passengers who miss connections.
 date: 2026-11-15
 part: 5
+lang: en
+alternate_url: /ko/05-a-streaming-agent-grounded-in-live-state.html
 reading_time: 6
 sample: 2 agent runs
 takeaways:

@@ -1,5 +1,22 @@
 const articleBody = document.querySelector(".article-body");
 const tocLinks = [...document.querySelectorAll(".article-toc a[href^='#']")];
+const languageToggle = document.querySelector(".language-toggle");
+
+if (languageToggle) {
+  const currentLanguage = document.documentElement.lang || "en";
+  const preferredLanguage = localStorage.getItem("streamhouse-language");
+
+  languageToggle.addEventListener("click", () => {
+    localStorage.setItem(
+      "streamhouse-language",
+      currentLanguage === "ko" ? "en" : "ko"
+    );
+  });
+
+  if (preferredLanguage && preferredLanguage !== currentLanguage) {
+    window.location.replace(languageToggle.href);
+  }
+}
 
 // The table of contents is rendered at build time (_includes/toc.html).
 // This only marks the section being read, for the sticky desktop list.

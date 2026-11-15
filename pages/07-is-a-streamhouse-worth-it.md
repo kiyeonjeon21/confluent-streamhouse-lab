@@ -3,6 +3,8 @@ title: Is a Streamhouse worth it?
 description: What a Streamhouse promises, what this lab actually showed for each promise, where it fits, and where it does not.
 date: 2026-11-15
 part: 7
+lang: en
+alternate_url: /ko/07-is-a-streamhouse-worth-it.html
 reading_time: 8
 sample: Evidence from all 6 capabilities
 takeaways:

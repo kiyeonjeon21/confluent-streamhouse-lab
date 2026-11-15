@@ -18,7 +18,7 @@
 {%- endcapture -%}
 {%- if toc_items != '' -%}
 <nav class="article-toc" aria-labelledby="article-toc-title">
-  <p class="article-toc__title" id="article-toc-title">On this page</p>
+  <p class="article-toc__title" id="article-toc-title">{% if page.lang == 'ko' %}목차{% else %}On this page{% endif %}</p>
   <ol>{{ toc_items }}</ol>
 </nav>
 {%- endif -%}

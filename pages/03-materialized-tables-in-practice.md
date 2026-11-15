@@ -3,6 +3,8 @@ title: Materialized tables in practice
 description: The continuous query that is not in the statement list, two CRITICAL warnings on the official example, and the settings that decide freshness.
 date: 2026-11-15
 part: 3
+lang: en
+alternate_url: /ko/03-materialized-tables-in-practice.html
 reading_time: 6
 sample: 2 CRITICAL warnings
 takeaways:

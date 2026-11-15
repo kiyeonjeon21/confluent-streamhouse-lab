@@ -2,6 +2,8 @@
 title: Building a Streamhouse on Confluent Cloud
 description: A hands-on series on Kafka, Flink materialized tables, Lightning Tables, Tableflow, and a streaming agent on Confluent Cloud, with measured results.
 layout: landing
+lang: en
+alternate_url: /ko/
 ---
 
 <section class="home-hero">

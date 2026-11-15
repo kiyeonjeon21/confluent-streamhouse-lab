@@ -3,24 +3,26 @@ layout: default
 ---
 {%- assign chapter_index = page.part | minus: 1 -%}
 {%- assign chapter = site.data.chapters[chapter_index] -%}
+{%- assign locale = page.lang | default: 'en' -%}
+{%- assign ui = site.data.ui[locale] -%}
 <div id="main-content" class="article-shell">
   <article class="research-article">
     <header class="article-hero">
-      <a class="article-series-link" href="{{ '/' | relative_url }}">All chapters</a>
-      <p class="article-kicker">Chapter {{ page.part }} of {{ site.data.chapters.size }} · {{ chapter.label }}</p>
+      <a class="article-series-link" href="{% if locale == 'ko' %}{{ '/ko/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}">{{ ui.series }}</a>
+      <p class="article-kicker">{{ ui.chapter }} {{ page.part }} {{ ui.of }} {{ site.data.chapters.size }} · {% if locale == 'ko' %}{{ chapter.ko_label }}{% else %}{{ chapter.label }}{% endif %}</p>
       <h1>{{ page.title | smartify }}</h1>
       <p class="article-dek">{{ page.description | escape }}</p>
       <div class="article-meta">
-        <span>{{ page.date | date: "%B %-d, %Y" }}</span>
-        {%- if page.reading_time -%}<span>{{ page.reading_time }} min read</span>{%- endif -%}
+        <span>{% if locale == 'ko' %}{{ page.date | date: "%Y년 %-m월 %-d일" }}{% else %}{{ page.date | date: "%B %-d, %Y" }}{% endif %}</span>
+        {%- if page.reading_time -%}<span>{{ page.reading_time }}{% if locale == 'ko' %}분{% else %} min read{% endif %}</span>{%- endif -%}
         {%- if page.sample -%}<span>{{ page.sample }}</span>{%- endif -%}
       </div>
     </header>
 
     {%- if page.takeaways -%}
     <section class="takeaways" aria-labelledby="key-findings-title">
-      <p class="section-label">At a glance</p>
-      <h2 id="key-findings-title">Key findings</h2>
+      <p class="section-label">{{ ui.at_glance }}</p>
+      <h2 id="key-findings-title">{{ ui.findings }}</h2>
       <ul>
         {%- for takeaway in page.takeaways -%}
         <li>
@@ -47,28 +49,28 @@ layout: default
       {%- if page.part > 1 -%}
         {%- assign previous_index = chapter_index | minus: 1 -%}
         {%- assign previous = site.data.chapters[previous_index] -%}
-        <a class="chapter-pagination__item chapter-pagination__item--previous" href="{{ previous.url | relative_url }}">
-          <span>Previous · Chapter {{ previous.part }}</span>
-          <strong>{{ previous.short_title }}</strong>
+        <a class="chapter-pagination__item chapter-pagination__item--previous" href="{% if locale == 'ko' %}{{ previous.ko_url | relative_url }}{% else %}{{ previous.url | relative_url }}{% endif %}">
+          <span>{{ ui.previous }} · {{ ui.chapter }} {{ previous.part }}</span>
+          <strong>{% if locale == 'ko' %}{{ previous.ko_short_title }}{% else %}{{ previous.short_title }}{% endif %}</strong>
         </a>
       {%- else -%}
-        <a class="chapter-pagination__item chapter-pagination__item--previous" href="{{ '/' | relative_url }}">
+        <a class="chapter-pagination__item chapter-pagination__item--previous" href="{% if locale == 'ko' %}{{ '/ko/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}">
           <span>Series</span>
-          <strong>Project overview</strong>
+          <strong>{{ ui.project }}</strong>
         </a>
       {%- endif -%}
 
       {%- if page.part < site.data.chapters.size -%}
         {%- assign next_index = chapter_index | plus: 1 -%}
         {%- assign next = site.data.chapters[next_index] -%}
-        <a class="chapter-pagination__item chapter-pagination__item--next" href="{{ next.url | relative_url }}">
-          <span>Next · Chapter {{ next.part }}</span>
-          <strong>{{ next.short_title }}</strong>
+        <a class="chapter-pagination__item chapter-pagination__item--next" href="{% if locale == 'ko' %}{{ next.ko_url | relative_url }}{% else %}{{ next.url | relative_url }}{% endif %}">
+          <span>{{ ui.next }} · {{ ui.chapter }} {{ next.part }}</span>
+          <strong>{% if locale == 'ko' %}{{ next.ko_short_title }}{% else %}{{ next.short_title }}{% endif %}</strong>
         </a>
       {%- else -%}
-        <a class="chapter-pagination__item chapter-pagination__item--next" href="{{ '/' | relative_url }}">
+        <a class="chapter-pagination__item chapter-pagination__item--next" href="{% if locale == 'ko' %}{{ '/ko/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}">
           <span>Series</span>
-          <strong>Back to the overview</strong>
+          <strong>{{ ui.back }}</strong>
         </a>
       {%- endif -%}
     </nav>

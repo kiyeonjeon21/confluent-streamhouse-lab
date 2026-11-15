@@ -3,6 +3,8 @@ title: Proving that Tableflow wrote Iceberg
 description: A Flink snapshot query returns the same rows whether they come from Kafka or Iceberg. Reading the Tableflow catalog directly with pyiceberg settles it.
 date: 2026-11-15
 part: 4
+lang: en
+alternate_url: /ko/04-proving-tableflow-wrote-iceberg.html
 reading_time: 7
 sample: 6 rows reconciled by offset
 takeaways:

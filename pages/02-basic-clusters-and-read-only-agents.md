@@ -3,6 +3,8 @@ title: Basic clusters cannot hold a read-only agent
 description: On a Confluent Cloud Basic cluster, the read-only role an MCP agent needs is rejected and ACLs are ignored. What I tried and what worked.
 date: 2026-11-15
 part: 2
+lang: en
+alternate_url: /ko/02-basic-clusters-and-read-only-agents.html
 reading_time: 5
 sample: 3 authorization attempts
 takeaways:

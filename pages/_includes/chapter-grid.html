@@ -1,11 +1,13 @@
 <div class="chapter-grid">
+  {%- assign locale = page.lang | default: 'en' -%}
+  {%- assign ui = site.data.ui[locale] -%}
   {%- for chapter in site.data.chapters -%}
-  <a class="chapter-card" href="{{ chapter.url | relative_url }}">
+  <a class="chapter-card" href="{% if locale == 'ko' %}{{ chapter.ko_url | relative_url }}{% else %}{{ chapter.url | relative_url }}{% endif %}">
     <span class="chapter-card__number">0{{ chapter.part }}</span>
-    <span class="chapter-card__label">{{ chapter.label }}</span>
-    <strong>{{ chapter.title | smartify }}</strong>
-    <span class="chapter-card__summary">{{ chapter.summary }}</span>
-    <span class="chapter-card__link">Read chapter <span aria-hidden="true">→</span></span>
+    <span class="chapter-card__label">{% if locale == 'ko' %}{{ chapter.ko_label }}{% else %}{{ chapter.label }}{% endif %}</span>
+    <strong>{% if locale == 'ko' %}{{ chapter.ko_title }}{% else %}{{ chapter.title | smartify }}{% endif %}</strong>
+    <span class="chapter-card__summary">{% if locale == 'ko' %}{{ chapter.ko_summary }}{% else %}{{ chapter.summary }}{% endif %}</span>
+    <span class="chapter-card__link">{{ ui.read }} <span aria-hidden="true">→</span></span>
   </a>
   {%- endfor -%}
 </div>

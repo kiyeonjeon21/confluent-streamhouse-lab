@@ -3,6 +3,8 @@ title: Building a Streamhouse in Terraform and SQL
 description: What a Confluent Streamhouse is made of, how I rebuilt the official quick start as a reproducible lab, and what passed.
 date: 2026-11-15
 part: 1
+lang: en
+alternate_url: /ko/01-the-lab.html
 reading_time: 7
 sample: 6 live capabilities
 takeaways:
