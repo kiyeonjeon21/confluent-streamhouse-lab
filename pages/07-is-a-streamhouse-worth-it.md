@@ -28,7 +28,7 @@ The Streamhouse answer is to compute the current state once, continuously, from 
 | Streaming database | One system maintains views and answers queries | Varies by system | Depends on the system | One system, often outside your event platform |
 | Streamhouse on Confluent Cloud | Flink materialized tables over Kafka topics; Lightning Tables serve them; Tableflow writes Iceberg | Measured here: 18 to 68 s | Iceberg, from the same topics | Mostly configuration; the parts are managed |
 
-The distinctive idea is the last column's design: the Kafka topic is the contract.
+What sets the last row apart is that the Kafka topic is the contract.
 Flink writes a topic, Lightning serves that topic, Tableflow archives that topic, and an agent reads it through MCP.
 No layer holds a private copy of another layer's logic.
 
