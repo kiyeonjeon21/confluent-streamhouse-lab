@@ -1,0 +1,45 @@
+<figure class="architecture" aria-labelledby="architecture-title architecture-caption">
+  <figcaption>
+    <span class="section-label">System map</span>
+    <strong id="architecture-title">One event backbone, two read paths</strong>
+    <span id="architecture-caption">Flink maintains current state; Tableflow materializes the same Kafka history into Iceberg.</span>
+  </figcaption>
+  <div class="architecture__canvas">
+    <div class="architecture__node architecture__node--source">
+      <span>01 · Events</span>
+      <strong>Kafka topics</strong>
+      <small>Flights · passengers · hotels</small>
+    </div>
+    <span class="architecture__arrow" aria-hidden="true">→</span>
+    <div class="architecture__fork">
+      <div class="architecture__lane">
+        <span class="architecture__lane-label">Current state</span>
+        <div class="architecture__node">
+          <span>02 · Compute</span>
+          <strong>Flink</strong>
+          <small>Materialized tables</small>
+        </div>
+        <span class="architecture__arrow" aria-hidden="true">→</span>
+        <div class="architecture__node architecture__node--accent">
+          <span>03 · Serve</span>
+          <strong>Lightning Tables</strong>
+          <small>Apps · MCP · agents</small>
+        </div>
+      </div>
+      <div class="architecture__lane">
+        <span class="architecture__lane-label">History</span>
+        <div class="architecture__node">
+          <span>02 · Materialize</span>
+          <strong>Tableflow</strong>
+          <small>Managed pipeline</small>
+        </div>
+        <span class="architecture__arrow" aria-hidden="true">→</span>
+        <div class="architecture__node architecture__node--history">
+          <span>03 · Store</span>
+          <strong>Apache Iceberg</strong>
+          <small>Snapshots · catalog</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</figure>

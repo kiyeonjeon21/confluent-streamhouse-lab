@@ -2,11 +2,16 @@
 title: Proving that Tableflow wrote Iceberg
 description: A Flink snapshot query returns the same rows whether they come from Kafka or Iceberg. Reading the Tableflow catalog directly with pyiceberg settles it.
 date: 2026-11-15
+part: 4
+reading_time: 7
+sample: 6 rows reconciled by offset
+takeaways:
+  - "A successful Flink query did not prove Tableflow worked while the same records still existed in Kafka."
+  - "A direct pyiceberg read found all six source rows at offsets 0 through 5 in the managed Iceberg catalog."
+  - "After Kafka records were deleted, one Flink snapshot query still combined Iceberg-only old rows with Kafka-only new rows."
 ---
 
-*Part 4 of [Building a Streamhouse on Confluent Cloud](index.md).*
-
-## The problem with the obvious test
+## Why the obvious test proves nothing
 
 Tableflow materializes a Kafka topic as an Iceberg table.
 On Confluent Cloud, a Flink snapshot query over a Tableflow-enabled topic reads older data from the Iceberg snapshot and the newest records from Kafka, so one query covers both history and the present.
@@ -23,7 +28,7 @@ RA417      4        1        120
 I got exactly that, before and after enabling Tableflow.
 The rows were minutes old and still in Kafka, though, so the result would have been the same whether Tableflow worked or not, and it told me nothing about Iceberg.
 
-## Read the Iceberg table directly
+## Evidence 1: read the Iceberg table directly
 
 Tableflow exposes an Iceberg REST catalog for each environment:
 
@@ -91,7 +96,7 @@ Managed storage tables are reachable through the Tableflow catalog with those ve
 Engines that support the Iceberg REST Catalog and vended credentials can query them directly; Confluent documents Athena for Spark as one example.
 If you specifically need Glue catalog integration, you need your own bucket.
 
-## Proving the hybrid read
+## Evidence 2: force a hybrid read
 
 At this point Iceberg held the right data, but nothing showed that Flink had ever read it.
 The clean test is to make Kafka forget the data and ask Flink again.
@@ -108,13 +113,29 @@ At each step a script checked a Kafka consumer reading from the start of the top
 | Kafka records deleted | nothing | OLD-1..4 | OLD-1..4 |
 | New batch written | NEW-1, NEW-2 | OLD-1..4 | OLD-1..4, NEW-1, NEW-2 |
 
+```mermaid
+accTitle: Tableflow hybrid-read proof
+accDescr: Old rows move from Kafka to Iceberg and are deleted from Kafka. New rows remain only in Kafka. A Flink snapshot query reads both stores and returns all six rows.
+flowchart LR
+  OLD[Old rows<br/>OLD-1..4] --> K1[(Kafka)]
+  K1 --> TF[Tableflow]
+  TF --> ICE[(Iceberg<br/>OLD-1..4)]
+  DEL[DeleteRecords] -. removes old rows .-> K1
+  NEW[New rows<br/>NEW-1, NEW-2] --> K1
+  ICE --> F[Flink snapshot query]
+  K1 --> F
+  F --> ALL[All six rows]
+```
+
+*At the final step, the two stores contain disjoint data. The combined result is direct evidence that Flink read both paths.*
+
 In the second row Kafka had nothing left and Flink still returned the old rows, so it read them from Iceberg.
 In the third row the old rows were only in Iceberg and the new ones only in Kafka, because Tableflow hadn't caught up yet.
 One snapshot query returned all six, 6.6 seconds after I wrote the new batch.
+
+> **Proof:** The old rows existed only in Iceberg and the new rows existed only in Kafka. Returning all six in one result rules out either source acting alone.
 
 Deleting the Kafka records left the Iceberg table alone, so a topic can keep a short, cheap retention while queries still see the full history.
 
 My first attempt at this stopped right after the deletion, because my code read the wrong field of the `DeleteRecords` response.
 The deletion had gone through, so I checked the topic's watermarks and resumed from that state instead of writing the old batch a second time.
-
-Next: [A streaming agent grounded in live state](05-a-streaming-agent-grounded-in-live-state.md).

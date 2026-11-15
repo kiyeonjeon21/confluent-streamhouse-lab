@@ -2,15 +2,20 @@
 title: Is a Streamhouse worth it?
 description: What a Streamhouse promises, what this lab actually showed for each promise, where it fits, and where it does not.
 date: 2026-11-15
+part: 7
+reading_time: 8
+sample: Evidence from all 6 capabilities
+takeaways:
+  - "The Streamhouse held one derived-state definition across applications, Lightning reads, and the agent, while Tableflow preserved history without another export pipeline."
+  - "This setup fits operational decisions that tolerate tens of seconds; it does not fit sub-second read-your-write paths or analytical queries on the serving layer."
+  - "Before production use, measure scan cost at realistic table sizes and use a cluster tier that can give agent credentials least privilege."
 ---
-
-*Part 7 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 The first six parts were about how the pieces behave.
 This one is about the question a team would ask: should we build our next system this way?
 I'm judging it only by what the lab measured.
 
-## The problem a Streamhouse is aimed at
+## The decision frame
 
 Most companies keep two copies of the business.
 Operational systems know what's true right now, and a warehouse or lakehouse knows what happened, minutes or hours later.
@@ -68,7 +73,7 @@ And on a Basic cluster the agent's credential could administer the cluster, beca
 This held at small scale.
 The risk flag is a business monitor that keeps itself up to date.
 Flink does mark the quick start's own query with two CRITICAL warnings, though: the primary key doesn't match the derived upsert key, and the joins keep state forever.
-With three passengers that costs nothing; at real volume someone has to fix it during design review.
+With three passengers the warnings had no visible effect; at real volume someone has to address both during design review.
 
 ## Where it fits
 
@@ -114,5 +119,3 @@ On Confluent Cloud it takes surprisingly little code, and the streaming agent we
 "Real time" here means tens of seconds, though, and Flink's commit interval sets that.
 Lightning is good for fast lookups and can't aggregate or join.
 I'd use it for operational decisions and agent context where a minute is fresh enough, measure scan costs on my own data before depending on high-rate lookups, and keep analytical work in Iceberg.
-
-Back to the [overview](index.md).

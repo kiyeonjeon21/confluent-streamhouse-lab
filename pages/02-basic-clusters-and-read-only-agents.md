@@ -2,9 +2,14 @@
 title: Basic clusters cannot hold a read-only agent
 description: On a Confluent Cloud Basic cluster, the read-only role an MCP agent needs is rejected and ACLs are ignored. What I tried and what worked.
 date: 2026-11-15
+part: 2
+reading_time: 5
+sample: 3 authorization attempts
+takeaways:
+  - "A service account on a Basic cluster could not receive DeveloperRead at topic or cluster scope."
+  - "Kafka READ ACLs were accepted by Kafka but did not authorize any of the three Real-Time Context Engine tools."
+  - "CloudClusterAdmin worked, but it turns a read-only MCP client into an over-privileged credential; Standard is the least-privilege option."
 ---
-
-*Part 2 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 ## The goal
 
@@ -67,6 +72,8 @@ My conclusion is that the engine checks the RBAC authorization service and ignor
 `CloudClusterAdmin` on the lab's one cluster is a cluster-level role rather than a resource role, so Basic accepts it.
 With it, `listTopics` worked on the first call.
 
+> **Security finding:** On this Basic cluster, the narrowest credential that worked for a read-only MCP client could also administer the cluster.
+
 So the options are these:
 
 | Option | Credential privilege | Cluster requirement or trade-off |
@@ -87,5 +94,3 @@ That means the agent can run under a principal that Terraform creates and destro
 
 If agents will sit in front of Lightning Tables, factor permissions into the cluster type along with throughput and price.
 On Basic, the context reader has to hold an admin role on the cluster.
-
-Next: [Materialized tables in practice](03-materialized-tables-in-practice.md).

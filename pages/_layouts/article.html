@@ -1,0 +1,72 @@
+---
+layout: default
+---
+{%- assign chapter_index = page.part | minus: 1 -%}
+{%- assign chapter = site.data.chapters[chapter_index] -%}
+<div id="main-content" class="article-shell">
+  <article class="research-article">
+    <header class="article-hero">
+      <a class="article-series-link" href="{{ '/' | relative_url }}">Streamhouse field notes</a>
+      <p class="article-kicker">Chapter {{ page.part }} of {{ site.data.chapters.size }} · {{ chapter.label }}</p>
+      <h1>{{ page.title | escape }}</h1>
+      <p class="article-dek">{{ page.description | escape }}</p>
+      <div class="article-meta">
+        <span>{{ page.date | date: "%B %-d, %Y" }}</span>
+        {%- if page.reading_time -%}<span>{{ page.reading_time }} min read</span>{%- endif -%}
+        {%- if page.sample -%}<span>{{ page.sample }}</span>{%- endif -%}
+      </div>
+    </header>
+
+    {%- if page.takeaways -%}
+    <section class="takeaways" aria-labelledby="key-findings-title">
+      <p class="section-label">At a glance</p>
+      <h2 id="key-findings-title">Key findings</h2>
+      <ul>
+        {%- for takeaway in page.takeaways -%}
+        <li>{{ takeaway }}</li>
+        {%- endfor -%}
+      </ul>
+    </section>
+    {%- endif -%}
+
+    <div class="article-grid">
+      <aside class="article-toc" aria-label="On this page">
+        <p class="article-toc__title">On this page</p>
+        <nav id="article-toc-links" aria-label="Article sections"></nav>
+      </aside>
+      <div class="article-body">
+        {{ content }}
+      </div>
+    </div>
+
+    <nav class="chapter-pagination" aria-label="Chapter navigation">
+      {%- if page.part > 1 -%}
+        {%- assign previous_index = chapter_index | minus: 1 -%}
+        {%- assign previous = site.data.chapters[previous_index] -%}
+        <a class="chapter-pagination__item chapter-pagination__item--previous" href="{{ previous.url | relative_url }}">
+          <span>Previous · Chapter {{ previous.part }}</span>
+          <strong>{{ previous.short_title }}</strong>
+        </a>
+      {%- else -%}
+        <a class="chapter-pagination__item chapter-pagination__item--previous" href="{{ '/' | relative_url }}">
+          <span>Series</span>
+          <strong>Project overview</strong>
+        </a>
+      {%- endif -%}
+
+      {%- if page.part < site.data.chapters.size -%}
+        {%- assign next_index = chapter_index | plus: 1 -%}
+        {%- assign next = site.data.chapters[next_index] -%}
+        <a class="chapter-pagination__item chapter-pagination__item--next" href="{{ next.url | relative_url }}">
+          <span>Next · Chapter {{ next.part }}</span>
+          <strong>{{ next.short_title }}</strong>
+        </a>
+      {%- else -%}
+        <a class="chapter-pagination__item chapter-pagination__item--next" href="{{ '/' | relative_url }}">
+          <span>Series</span>
+          <strong>Back to the overview</strong>
+        </a>
+      {%- endif -%}
+    </nav>
+  </article>
+</div>

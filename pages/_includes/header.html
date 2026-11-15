@@ -2,8 +2,21 @@
   minima 2.5.1's header without the page navigation: the only page worth
   linking from the header is the index, which the site title already links to.
 {%- endcomment -%}
-<header class="site-header" role="banner">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
   <div class="wrapper">
-    <a class="site-title" rel="author" href="{{ "/" | relative_url }}">{{ site.title | escape }}</a>
+    <a class="site-title" rel="author" href="{{ '/' | relative_url }}">
+      <span class="site-mark" aria-hidden="true">S</span>
+      <span>
+        <strong>{{ site.short_title | escape }}</strong>
+        <small>Independent engineering research</small>
+      </span>
+    </a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="{{ '/' | relative_url }}">Overview</a>
+      <a href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}">Benchmarks</a>
+      <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}">Verdict</a>
+      <a href="{{ site.repository_url }}">GitHub</a>
+    </nav>
   </div>
 </header>

@@ -1,0 +1,42 @@
+- part: 1
+  url: /01-the-lab.html
+  title: Building a Streamhouse in Terraform and SQL
+  short_title: The lab
+  summary: The architecture, reproducible build, and six capabilities that passed.
+  label: Architecture
+- part: 2
+  url: /02-basic-clusters-and-read-only-agents.html
+  title: Basic clusters cannot hold a read-only agent
+  short_title: Read-only agents
+  summary: Why the cheapest cluster forces an MCP reader to hold an admin role.
+  label: Access control
+- part: 3
+  url: /03-materialized-tables-in-practice.html
+  title: Materialized tables in practice
+  short_title: Materialized tables
+  summary: Hidden continuous queries, two CRITICAL warnings, and the settings behind freshness.
+  label: Flink
+- part: 4
+  url: /04-proving-tableflow-wrote-iceberg.html
+  title: Proving that Tableflow wrote Iceberg
+  short_title: Tableflow and Iceberg
+  summary: Direct catalog reads and a destructive test that proves the Kafka–Iceberg hybrid path.
+  label: History
+- part: 5
+  url: /05-a-streaming-agent-grounded-in-live-state.html
+  title: A streaming agent grounded in live state
+  short_title: Streaming agent
+  summary: A managed model, an MCP tool, and the operational limits behind a correct answer.
+  label: AI agents
+- part: 6
+  url: /06-how-fresh-is-real-time.html
+  title: How fresh is "real time"?
+  short_title: Freshness benchmarks
+  summary: End-to-end freshness, query latency, scanned bytes, and concurrency with measured data.
+  label: Benchmarks
+- part: 7
+  url: /07-is-a-streamhouse-worth-it.html
+  title: Is a Streamhouse worth it?
+  short_title: The verdict
+  summary: Where the architecture fits, where it does not, and what remains unproven.
+  label: Decision guide

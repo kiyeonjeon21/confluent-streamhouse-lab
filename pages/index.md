@@ -4,37 +4,117 @@ description: A hands-on series on Kafka, Flink materialized tables, Lightning Ta
 layout: landing
 ---
 
-# How real-time is a Streamhouse?
+<section class="home-hero">
+  <div class="home-hero__copy">
+    <p class="eyebrow">Seven chapters · One reproducible lab · Measured from Seoul</p>
+    <h1>How real-time is a Streamhouse?</h1>
+    <p class="home-hero__dek">I rebuilt Confluent's River Air Streamhouse as Terraform, version-controlled Flink SQL, and automated tests—then measured the path from a Kafka write to derived state, Iceberg history, and an AI agent.</p>
+    <p class="home-hero__summary">The architecture worked. The surprise was time: derived state reached Lightning Tables in <strong>44.3 seconds at p50</strong>, with most of the wait inside Flink's transaction commit.</p>
+    <div class="home-hero__actions">
+      <a class="button button--primary" href="{{ '/01-the-lab.html' | relative_url }}">Start with the lab</a>
+      <a class="button" href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}">See the benchmarks</a>
+    </div>
+  </div>
+  <aside class="home-hero__scope" aria-label="Experiment scope">
+    <p class="section-label">Experiment scope</p>
+    <dl>
+      <div><dt>Environment</dt><dd>AWS <code>us-east-1</code></dd></div>
+      <div><dt>Cluster</dt><dd>Confluent Basic</dd></div>
+      <div><dt>Dataset</dt><dd>10,000 passengers</dd></div>
+      <div><dt>Client</dt><dd>Seoul · ~190 ms away</dd></div>
+      <div><dt>Run date</dt><dd>November 15, 2026</dd></div>
+    </dl>
+  </aside>
+</section>
 
-In November 2026 I rebuilt River Air, Confluent's Streamhouse quick start, as Terraform and SQL files, tested each piece, and then measured it from my laptop in Seoul against AWS `us-east-1`.
+<section class="home-section home-section--metrics" aria-labelledby="measured-title">
+  <div class="section-heading">
+    <div>
+      <p class="section-label">Measured, not estimated</p>
+      <h2 id="measured-title">The numbers that changed the conclusion</h2>
+    </div>
+    <p>Each figure comes from the experiments in Chapter 6. The article includes the method, sample size, raw distributions, and limitations.</p>
+  </div>
+  <div class="metric-grid">
+    <article class="metric-card metric-card--primary">
+      <span class="metric-card__value">44.3<span>s</span></span>
+      <strong>End-to-end freshness, p50</strong>
+      <p>Broker acknowledgement to a derived row becoming visible in Lightning Tables, 30 samples.</p>
+    </article>
+    <article class="metric-card">
+      <span class="metric-card__value">3–7<span>s</span></span>
+      <strong>Commit to Lightning visibility</strong>
+      <p>The observed range between broker commit visibility and the first successful Lightning query.</p>
+    </article>
+    <article class="metric-card">
+      <span class="metric-card__value">40.6<span>req/s</span></span>
+      <strong>At 32 concurrent clients</strong>
+      <p>Point lookups over MCP for 30 seconds, with no request or rate-limit errors.</p>
+    </article>
+    <article class="metric-card">
+      <span class="metric-card__value">4.5<span>min</span></span>
+      <strong>First Iceberg data</strong>
+      <p>A low-throughput topic reached its third snapshot with all six source rows.</p>
+    </article>
+  </div>
+</section>
 
-Most of it worked the first time, including the streaming agent and a single Flink query that reads Iceberg history and live Kafka data together.
-Freshness was the surprise.
-Across 30 samples, a change took a median of 44 seconds to show up in derived state, and nearly all of that was waiting for Flink to commit its output, which it does about once a minute.
-After the commit, Lightning Tables took another 3 to 7 seconds, even though the documentation says a Lightning Table updates within 100 ms of new data arriving in its topic.
+<section class="home-section" aria-labelledby="architecture-section-title">
+  <div class="section-heading">
+    <div>
+      <p class="section-label">Architecture</p>
+      <h2 id="architecture-section-title">Current state and history share Kafka as the interface</h2>
+    </div>
+    <p>Flink defines the business state once. Lightning serves that state to applications and agents, while Tableflow carries topic history into Iceberg.</p>
+  </div>
+  {% include architecture.html %}
+</section>
 
-If you're deciding whether to use a Streamhouse, part 7 sums it up.
-If you want to build one, start with part 1.
+<section class="home-section home-section--findings" aria-labelledby="findings-title">
+  <div class="section-heading">
+    <div>
+      <p class="section-label">What held up</p>
+      <h2 id="findings-title">A useful architecture with sharp operational edges</h2>
+    </div>
+  </div>
+  <div class="finding-columns">
+    <article>
+      <span class="finding-columns__mark finding-columns__mark--yes" aria-hidden="true">✓</span>
+      <h3>The core path worked</h3>
+      <ul>
+        <li>All six capabilities matched the quick start's expected result.</li>
+        <li>A Flink snapshot query combined Iceberg-only history with Kafka-only new rows.</li>
+        <li>The managed agent returned the correct flights and hotel on its first run.</li>
+      </ul>
+    </article>
+    <article>
+      <span class="finding-columns__mark finding-columns__mark--caution" aria-hidden="true">!</span>
+      <h3>The constraints matter</h3>
+      <ul>
+        <li>Derived state arrived in tens of seconds, not sub-second time.</li>
+        <li>A Basic cluster could not give the MCP reader least privilege.</li>
+        <li>The official materialized-table query raised two CRITICAL warnings.</li>
+      </ul>
+    </article>
+  </div>
+</section>
 
-## The series
+<section class="home-section" aria-labelledby="chapters-title">
+  <div class="section-heading">
+    <div>
+      <p class="section-label">The field notes</p>
+      <h2 id="chapters-title">Seven chapters, from build to verdict</h2>
+    </div>
+    <p>Read in order for the full investigation, or jump directly to the implementation detail or benchmark you need.</p>
+  </div>
+  {% include chapter-grid.html %}
+</section>
 
-1. [The lab: a Streamhouse in Terraform, SQL files, and tests](01-the-lab.md).
-   What a Streamhouse is made of, how I built the lab, and what passed.
-2. [Basic clusters cannot hold a read-only agent](02-basic-clusters-and-read-only-agents.md).
-   On the cheapest cluster type, the agent's credential has to be an admin role.
-3. [Materialized tables in practice](03-materialized-tables-in-practice.md).
-   The continuous query that doesn't appear in the statement list, and two CRITICAL warnings on the official example.
-4. [Proving that Tableflow wrote Iceberg](04-proving-tableflow-wrote-iceberg.md).
-   Reading the Iceberg table directly, and deleting the Kafka copy to prove the hybrid read.
-5. [A streaming agent grounded in live state](05-a-streaming-agent-grounded-in-live-state.md).
-   A Flink agent on a managed Claude model reads Lightning Tables over MCP and gets the answer right on its first run.
-6. [How fresh is "real time"?](06-how-fresh-is-real-time.md)
-   Where the 44 seconds go, query latency and concurrency, and a benchmark bug that made my first run look slower.
-7. [Is a Streamhouse worth it?](07-is-a-streamhouse-worth-it.md)
-   The four promises against what I measured, where it fits, and where it doesn't.
-
-## How I measured
-
-I built everything with Terraform, version-controlled Flink SQL, and about 140 automated tests, and tore it down between sessions.
-The numbers come from runs on 2026-11-15 on AWS `us-east-1` with a Basic cluster and 10,000 generated passengers, measured from Seoul, about 190 ms away.
-Each post gives its method, its sample size, and what it couldn't show.
+<section class="method-note" aria-labelledby="method-title">
+  <div>
+    <p class="section-label">Method</p>
+    <h2 id="method-title">Built to be challenged and repeated</h2>
+  </div>
+  <p>The lab uses Terraform, version-controlled SQL, about 140 automated tests, and separate benchmark tables. Every measured chapter states its sample size and what the run could not prove. The environment was torn down between sessions and can be rebuilt from the repository.</p>
+  <a href="{{ site.repository_url }}">Inspect the repository <span aria-hidden="true">→</span></a>
+</section>

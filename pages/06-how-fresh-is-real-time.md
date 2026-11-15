@@ -2,9 +2,14 @@
 title: How fresh is "real time"?
 description: Measured freshness from a Kafka write to a Lightning read, query latency by shape, and concurrency, plus the benchmark bug that doubled the first result.
 date: 2026-11-15
+part: 6
+reading_time: 11
+sample: 30 freshness samples
+takeaways:
+  - "Derived state became visible in Lightning Tables after 44.3 seconds at p50 and 68.2 seconds at maximum in the stage-timed run."
+  - "Flink wrote output in 2.6 seconds at p50, but the transaction was not committed until 38.5 seconds; Lightning visibility followed at 44.3 seconds."
+  - "Query shape barely changed median latency at 10,000 rows, while throughput reached 40.6 requests per second at 32 concurrent clients with no errors."
 ---
-
-*Part 6 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 According to the [Lightning Tables documentation](https://docs.confluent.io/cloud/current/lightning-tables/overview.html), a table updates within 100 ms of new data arriving in its topic.
 That number covers only the serving layer.
@@ -24,7 +29,7 @@ An application cares about the whole path, from a source change through Flink to
 Every latency below includes that trans-Pacific round trip.
 The percentiles are nearest-rank, so each one is a value I actually observed.
 
-## Freshness: method
+## Freshness experiment design
 
 For each sample, the client writes a flight update with a unique `estimated_time` through the Kafka producer (`acks=all`) and records when the broker acknowledged it.
 Then it polls `queryData` for the probe passenger's `INBOUND_ARRIVAL` until the new value shows up.
@@ -34,7 +39,7 @@ Each sample records two times.
 The real visibility time is somewhere in between.
 The gap between the two was 1.6 to 2.9 s, median 1.8 s, which is the measurement's resolution; one MCP query takes about 0.8 s from Seoul.
 
-## Freshness: the first run was wrong
+## The benchmark trap in the first run
 
 The first run of 30 samples reported a median of 55.9 s and a maximum of 59.7 s.
 The first sample on its own was 17.4 s, though, and the other 29 all fell between 52.5 and 59.7 s.
@@ -49,7 +54,7 @@ Derived state reaches Lightning in steps about 61 seconds apart, and a write tha
 
 To fix it, I spread the writes across the interval: 5 seconds plus a seeded random 0 to 60 seconds between samples.
 
-## Freshness: the result
+## End-to-end freshness result
 
 With jitter, 30 samples, from broker acknowledgement to visible in Lightning:
 
@@ -66,7 +71,7 @@ The smallest value was 17 to 18 seconds in both runs, so the data fit a simple m
 
 That was still a guess, so I measured the stages directly.
 
-## Where the time goes
+## Stage-by-stage freshness breakdown
 
 The second run used the same method plus two Kafka consumers on background threads, both reading the materialized table's output topic.
 One reads with `isolation.level=read_uncommitted` and sees Flink's write as soon as it lands.
@@ -80,6 +85,15 @@ That way each write is observed three times: when Flink writes it, when it's com
 | Flink wrote the output | 0.2 | 2.6 | 4.8 | 5.0 | 2.7 |
 | Output committed | 11.3 | 38.5 | 61.1 | 61.8 | 36.7 |
 | Visible in Lightning | 17.5 | 44.3 | 66.9 | 68.2 | 42.8 |
+
+<figure class="benchmark-chart benchmark-chart--timeline" aria-labelledby="freshness-chart-title">
+  <figcaption id="freshness-chart-title"><strong>Cumulative p50 after the broker acknowledged the source write</strong><span>Scale ends at Lightning visibility, 44.3 seconds. The table above remains the complete result.</span></figcaption>
+  <div class="benchmark-chart__plot" aria-hidden="true">
+    <div class="benchmark-row"><span>Flink wrote output</span><div><i class="bar--fresh-write"></i></div><strong>2.6 s</strong></div>
+    <div class="benchmark-row"><span>Output committed</span><div><i class="bar--fresh-commit"></i></div><strong>38.5 s</strong></div>
+    <div class="benchmark-row"><span>Lightning visible</span><div><i class="bar--full"></i></div><strong>44.3 s</strong></div>
+  </div>
+</figure>
 
 And the gaps between them, per sample:
 
@@ -109,6 +123,8 @@ The two runs also agree on the total: a median of 44.3 seconds here and 46.1 in 
 On this setup, then, a source change shows up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average, and nearly all of that is the wait for Flink to commit.
 If you need fresher derived state, look at Flink's commit interval first.
 
+> **Measured result:** The serving query was not the dominant delay. At p50, Flink had written the output after 2.6 seconds, but the transaction was not committed until 38.5 seconds.
+
 ## Query latency by shape
 
 Three query shapes, 100 rounds each, interleaved over one MCP session:
@@ -118,6 +134,16 @@ Three query shapes, 100 rounds each, interleaved over one MCP session:
 | point lookup | 1 | 689 ms | 788 ms | 874 ms | 1,360 ms |
 | equality filter | 200 | 697 ms | 817 ms | 1,205 ms | 1,261 ms |
 | range filter | 200 | 694 ms | 814 ms | 1,039 ms | 1,222 ms |
+
+<figure class="benchmark-chart benchmark-chart--latency" aria-labelledby="latency-chart-title">
+  <figcaption id="latency-chart-title"><strong>Query latency by shape</strong><span>p50 and p95 over 100 interleaved rounds per shape; 900 ms scale.</span></figcaption>
+  <div class="benchmark-chart__legend" aria-hidden="true"><span><i class="legend-p50"></i>p50</span><span><i class="legend-p95"></i>p95</span></div>
+  <div class="benchmark-chart__plot" aria-hidden="true">
+    <div class="benchmark-row benchmark-row--paired"><span>Point lookup</span><div><i class="bar--point-p50"></i><i class="bar--point-p95"></i></div><strong>689 / 788 ms</strong></div>
+    <div class="benchmark-row benchmark-row--paired"><span>Equality filter</span><div><i class="bar--equality-p50"></i><i class="bar--equality-p95"></i></div><strong>697 / 817 ms</strong></div>
+    <div class="benchmark-row benchmark-row--paired"><span>Range filter</span><div><i class="bar--range-p50"></i><i class="bar--range-p95"></i></div><strong>694 / 814 ms</strong></div>
+  </div>
+</figure>
 
 The queries, against the 10,000-row `bench_passenger_state`:
 
@@ -173,6 +199,18 @@ This is a closed loop: N workers, each with its own MCP session, each sending it
 | 16 | 698 | 23.3 req/s | 0 | 646 ms | 743 ms |
 | 32 | 1,219 | 40.6 req/s | 0 | 774 ms | 837 ms |
 
+<figure class="benchmark-chart benchmark-chart--throughput" aria-labelledby="throughput-chart-title">
+  <figcaption id="throughput-chart-title"><strong>Throughput scaled with concurrent clients</strong><span>Closed-loop point lookups, 30 seconds per level; 40.6 req/s scale.</span></figcaption>
+  <div class="benchmark-chart__plot" aria-hidden="true">
+    <div class="benchmark-row"><span>1 client</span><div><i class="bar--c1"></i></div><strong>1.3 req/s</strong></div>
+    <div class="benchmark-row"><span>2 clients</span><div><i class="bar--c2"></i></div><strong>2.9 req/s</strong></div>
+    <div class="benchmark-row"><span>4 clients</span><div><i class="bar--c4"></i></div><strong>6.0 req/s</strong></div>
+    <div class="benchmark-row"><span>8 clients</span><div><i class="bar--c8"></i></div><strong>11.8 req/s</strong></div>
+    <div class="benchmark-row"><span>16 clients</span><div><i class="bar--c16"></i></div><strong>23.3 req/s</strong></div>
+    <div class="benchmark-row"><span>32 clients</span><div><i class="bar--full"></i></div><strong>40.6 req/s</strong></div>
+  </div>
+</figure>
+
 Throughput grew linearly up to 16 clients and latency stayed flat.
 At 32 it reached 40.6 req/s, short of the roughly 46 that linear scaling would give, and the median went up by about 130 ms.
 No request failed and I saw no rate-limit errors.
@@ -188,5 +226,3 @@ Mine looked harmless and lined the samples up with Flink's commits; random spaci
 
 And I'd keep recording both bounds for every sample.
 Having "not visible before" next to "visible by" showed the measurement's resolution and made the synchronization easy to spot.
-
-Next: [Is a Streamhouse worth it?](07-is-a-streamhouse-worth-it.md).

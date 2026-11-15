@@ -1,10 +1,15 @@
 ---
-title: "The lab: a Streamhouse in Terraform, SQL files, and tests"
+title: Building a Streamhouse in Terraform and SQL
 description: What a Confluent Streamhouse is made of, how I rebuilt the official quick start as a reproducible lab, and what passed.
 date: 2026-11-15
+part: 1
+reading_time: 7
+sample: 6 live capabilities
+takeaways:
+  - "All six capabilities passed: Kafka sources, Flink transforms, materialized state, Lightning reads, Iceberg history, and the rebooking agent."
+  - "The lab replaces console steps with Terraform, one-statement SQL files, and automated verification so it can be destroyed and rebuilt safely."
+  - "The managed layers exchange data through Kafka topics; Flink remains the single definition of derived business state."
 ---
-
-*Part 1 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 ## What a Streamhouse is
 
@@ -23,6 +28,8 @@ Flight RA417 from Chicago is late into San Francisco.
 The system has to work out which connecting passengers are now at risk, have an AI agent offer each of them two new flights and a hotel if they need one, and answer questions about past delays.
 
 ```mermaid
+accTitle: River Air Streamhouse architecture
+accDescr: Flight and passenger topics feed a Flink materialized table. Lightning Tables serve current state to an MCP agent, while Tableflow writes flight history to Iceberg.
 flowchart LR
   FS[flight_status] --> PS[[passenger_state<br/>materialized table]]
   PI[passenger_itineraries] --> PS
@@ -86,7 +93,7 @@ Some of what I read had already drifted, so I checked these instead of assuming:
 
 ## What passed
 
-All six capabilities matched the quick start, including the agent's output:
+> **Result:** All six capabilities matched the quick start, including the agent's output.
 
 | # | Capability | Result |
 |---|---|---|
@@ -110,5 +117,3 @@ You pay for what runs:
 - The agent bills for model inference on each run.
 
 Since everything is in code, I tore the lab down between sessions, which is the cheapest way to run it.
-
-Next: [Basic clusters cannot hold a read-only agent](02-basic-clusters-and-read-only-agents.md).

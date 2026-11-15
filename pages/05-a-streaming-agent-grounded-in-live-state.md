@@ -2,11 +2,16 @@
 title: A streaming agent grounded in live state
 description: A Flink agent on a managed Claude model reads Lightning Tables through the Real-Time Context Engine and rebooks passengers who miss connections.
 date: 2026-11-15
+part: 5
+reading_time: 6
+sample: 2 agent runs
+takeaways:
+  - "The managed Claude model queried live flights and hotels through MCP and returned the expected two offers and hotel for both passengers."
+  - "AI_RUN_AGENT accepts append-only input, so at-risk rows had to be copied out of the upsert materialized table first."
+  - "The model ignored the requested one-line format in both runs, and the Basic-cluster credential behind its read-only tools still held CloudClusterAdmin."
 ---
 
-*Part 5 of [Building a Streamhouse on Confluent Cloud](index.md).*
-
-## The pieces
+## The agent stack
 
 The rebooking agent is three Flink SQL objects and one connection:
 
@@ -41,7 +46,26 @@ The tool is the Real-Time Context Engine's MCP server, limited to `getMetadata` 
 The connection holds the MCP endpoint and the context reader's Global API key.
 Terraform can't create this kind of connection yet, so the lab uses `confluent flink connection create`.
 
-## Feeding it
+```mermaid
+accTitle: Streaming agent and MCP interaction
+accDescr: A Flink snapshot query invokes the rebooking agent. The managed model calls a constrained MCP tool, which queries live flight and hotel state in Lightning Tables.
+sequenceDiagram
+  participant Q as AI_RUN_AGENT
+  participant A as Rebooking agent
+  participant M as Managed model
+  participant R as MCP context engine
+  participant L as Lightning Tables
+  Q->>A: Passenger request
+  A->>M: Prompt and tool definitions
+  M->>R: queryData(flights, hotels)
+  R->>L: Read current state
+  L-->>R: Rows
+  R-->>M: Tool result
+  M-->>A: Offers and hotel
+  A-->>Q: SUCCESS + response
+```
+
+## The append-only input boundary
 
 `AI_RUN_AGENT` reads only append-only input, and `passenger_state` is an upsert table.
 So the lab copies at-risk passengers into an append-only `rebooking_requests` table and runs the agent over that:
@@ -58,7 +82,7 @@ LATERAL TABLE(AI_RUN_AGENT(
 )) AS r(agent_status, response);
 ```
 
-## The result
+## Observed result
 
 ```
 P-001  SUCCESS
@@ -77,7 +101,9 @@ The agent skipped RA214, which now leaves only 40 minutes after the delayed arri
 It added a hotel because RA232 leaves the next morning, and it passed over the sold-out Airport Bayfront Inn.
 The prompt contains no flight or hotel data, so the agent got all of this from live Lightning reads.
 
-## Notes from running it
+> **Agent result:** Both passengers received `RA226`, `RA232`, and Harbor Point Hotel. The model found every option through the MCP tool rather than from data embedded in the prompt.
+
+## Operational limits
 
 The model didn't reply with exactly one line in either run, despite the prompt; it put a sentence in front.
 The quick start warns about this.
@@ -92,10 +118,8 @@ On a Basic cluster the context reader's key holds `CloudClusterAdmin` ([part 2](
 Creating the connection with the CLI keeps the secret out of SQL history, and `confluent flink connection describe` doesn't return it.
 The CLI does take the secret as a command-line argument, so it shows up briefly in the local process list.
 
-## Other clients
+## External MCP clients
 
 Any authorized MCP client can read the Lightning Tables; the agent inside Flink is just one of them.
 Claude Code pointed at the same endpoint with the same key would read the same passenger state; I didn't run that comparison in this lab.
 That shared state is what a Streamhouse is for: applications and agents work from one continuously maintained table instead of their own copies.
-
-Next: [How fresh is "real time"?](06-how-fresh-is-real-time.md).

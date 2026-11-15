@@ -4,10 +4,18 @@
 {%- endcomment -%}
 <footer class="site-footer">
   <div class="wrapper">
-    <p>{{ site.description | escape }}</p>
-    <p>
-      An independent project, not affiliated with Confluent. The scenario and SQL are adapted
-      from Confluent's quick start and <code>confluentinc/quickstart-streamhouse</code> (Apache-2.0).
-    </p>
+    <div class="site-footer__intro">
+      <strong>{{ site.short_title }}</strong>
+      <p>{{ site.description | escape }}</p>
+    </div>
+    <nav class="site-footer__chapters" aria-label="Chapters">
+      {%- for chapter in site.data.chapters -%}
+      <a href="{{ chapter.url | relative_url }}"><span>0{{ chapter.part }}</span>{{ chapter.short_title }}</a>
+      {%- endfor -%}
+    </nav>
+    <div class="site-footer__legal">
+      <p>An independent project, not affiliated with Confluent.</p>
+      <p>The scenario and SQL are adapted from Confluent's quick start and <a href="https://github.com/confluentinc/quickstart-streamhouse"><code>confluentinc/quickstart-streamhouse</code></a> (Apache-2.0).</p>
+    </div>
   </div>
 </footer>

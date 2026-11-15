@@ -2,9 +2,14 @@
 title: Materialized tables in practice
 description: The continuous query that is not in the statement list, two CRITICAL warnings on the official example, and the settings that decide freshness.
 date: 2026-11-15
+part: 3
+reading_time: 6
+sample: 2 CRITICAL warnings
+takeaways:
+  - "The CREATE MATERIALIZED TABLE statement finishes, but its billed continuous query keeps running in a separate materialized-tables API."
+  - "The official River Air query raised two CRITICAL warnings: a key mismatch and unbounded join state."
+  - "A 5-second sink flush did not mean 5-second visibility; committed output reached downstream readers in roughly one-minute steps."
 ---
-
-*Part 3 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 A Flink materialized table on Confluent Cloud is a single object that owns a table definition, its backing compacted topic, its schema, and the continuous query that fills it.
 River Air's `passenger_state` joins every itinerary to its inbound and onward flights and keeps one row per passenger with a risk flag.
@@ -62,6 +67,8 @@ Stream Lineage does show them, as Flink nodes between the source topics and thei
 If you monitor or clean up Flink by listing statements, you will miss the part that is billed around the clock.
 The lab's status command now reads both lists.
 
+> **Operational trap:** A clean statement list does not mean Flink has stopped consuming CFUs. Materialized tables have their own lifecycle and status API.
+
 ## 2. The official example carries two CRITICAL warnings
 
 The materialized-table API also returns warnings.
@@ -101,5 +108,3 @@ Flink commits its output transaction about once a minute, and readers that only 
   For exploring, I'd use snapshot queries and only make a materialized table when the result has to stay current.
 - A materialized table is billed for at least one CFU for as long as it exists.
   You can stop it through the API or with Terraform's `stopped = true` without dropping it.
-
-Next: [Proving that Tableflow wrote Iceberg](04-proving-tableflow-wrote-iceberg.md).

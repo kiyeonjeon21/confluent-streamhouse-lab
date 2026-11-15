@@ -1,11 +1,13 @@
 # Jekyll configuration for the blog series published from pages/ by
 # .github/workflows/pages.yml (actions/jekyll-build-pages, github-pages gem).
 
-title: Building a Streamhouse on Confluent Cloud
+title: Streamhouse Lab
+short_title: Streamhouse Lab
 description: >-
   A hands-on series on Kafka, Flink materialized tables, Lightning Tables,
   Tableflow, and a streaming agent on Confluent Cloud, with measured results.
 lang: en
+repository_url: https://github.com/kiyeonjeon21/confluent-streamhouse-lab
 
 # minima 2.5.1 is the version the github-pages gem pins.
 theme: minima
@@ -14,7 +16,7 @@ defaults:
   - scope:
       path: ""
     values:
-      layout: page
+      layout: article
 
 plugins:
   - jekyll-relative-links # turns links to .md files into links to the built pages
