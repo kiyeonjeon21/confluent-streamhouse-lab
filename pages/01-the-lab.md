@@ -45,8 +45,9 @@ Here is what the console's Stream Lineage summary showed for the lab's cluster, 
 The summary groups nodes, and the badges count them.
 On the left are the two kinds of writers: `rdkafka`, the benchmark's data generator, and two Flink `INSERT` statements that replayed the RA417 events.
 In the middle are four topics.
-The `…` node is, by its tooltip, two aggregated Flink nodes: the two materialized tables, which read the topics and write their results back into the topic group.
-On the right are the readers, which include Lightning Tables.
+The `…` node's tooltip reads "flink · 2": two aggregated Flink nodes that read the topics and write back into them.
+The only Flink jobs in the lab that do both are the two materialized tables, so that is almost certainly what they are.
+On the right are consumers named as managed tasks of the environment; the summary does not say which service each belongs to.
 
 Two practical notes: lineage only shows recent traffic, so I replayed a few events before taking this; and the full Stream Lineage page showed only its onboarding screen for this environment, which uses the Essentials governance package.
 
