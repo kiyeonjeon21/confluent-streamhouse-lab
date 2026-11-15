@@ -20,7 +20,8 @@ No number appears in this repository unless a run in `results/` produced it, and
 
 Question: from an event written to `flight_status`, how long until `passenger_state` reflects it in a Lightning read?
 
-Method: one client writes an event with a unique `estimated_time` value (the marker) through the Kafka producer API, records the produce acknowledgement time, then polls `queryData` on `passenger_state` every 100 ms until the marker's effect appears.
+Method: one client writes an event with a unique `estimated_time` value (the marker) through the Kafka producer API, records the produce acknowledgement time, then polls `queryData` on `bench_passenger_state` until the marker's effect appears.
+Writes are spaced by a random wait at least as long as the commit interval, so they do not phase-lock to Flink's commits (see the first runs).
 Freshness = first-visible time minus acknowledgement time, both from the client's monotonic clock.
 Vary: Flink checkpoint and commit settings if exposed; event rate (idle versus 10 per second background).
 
@@ -78,7 +79,8 @@ Method: a log kept during the lab of every manual step, every surprise, and ever
 
 ## Tooling
 
-Built and unit tested on 2026-11-15 ([`tests/unit/test_bench.py`](../../tests/unit/test_bench.py)); not yet run against the cloud.
+Built and unit tested on 2026-11-15 ([`tests/unit/test_bench.py`](../../tests/unit/test_bench.py)).
+First runs of E1, E3, and E4: [2026-11-15-first-runs.md](2026-11-15-first-runs.md).
 
 | Piece | Where | What it guarantees |
 |---|---|---|

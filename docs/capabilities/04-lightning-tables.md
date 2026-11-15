@@ -73,4 +73,4 @@ Observed on the first run:
 - A single MCP `queryData` took 0.7 to 1.0 s from a client in Korea to `us-east-1`; that includes the trans-Pacific round trip and is an anecdote, not a measurement.
 - **Propagation into Lightning is far slower than Lightning's own 100 ms ingest.**
   Replaying an event and polling `queryData` once per second (2026-11-15, n = 2): the event's `INSERT` statement took 10.3 to 10.4 s to complete, and `passenger_state` in Lightning changed 34.6 s and 51.4 s after that.
-  Both values fall inside a one-minute window, which matches a Flink commit interval of about one minute (Lightning reads committed records) rather than the 5 s sink flush. Phase 4 experiment E1 measures this properly.
+  Both values fall inside a one-minute window, which matches a Flink commit interval of about one minute (Lightning reads committed records) rather than the 5 s sink flush. Phase 4 experiment E1 measured it properly: 18 to 68 s, p50 46 s, over 30 samples ([first runs](../experiments/2026-11-15-first-runs.md)).
