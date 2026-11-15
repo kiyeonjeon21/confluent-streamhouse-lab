@@ -4,8 +4,6 @@ description: A Flink agent on a managed Claude model reads Lightning Tables thro
 date: 2026-11-15
 ---
 
-# A streaming agent grounded in live state
-
 *Part 5 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 ## The pieces

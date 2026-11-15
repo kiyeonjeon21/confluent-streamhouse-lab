@@ -10,10 +10,6 @@ lang: en
 # minima 2.5.1 is the version the github-pages gem pins.
 theme: minima
 
-# Keep the header navigation to the series index; each post links to the next.
-header_pages:
-  - index.md
-
 defaults:
   - scope:
       path: ""

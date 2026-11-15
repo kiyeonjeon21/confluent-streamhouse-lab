@@ -1,0 +1,9 @@
+{%- comment -%}
+  minima 2.5.1's header without the page navigation: the only page worth
+  linking from the header is the index, which the site title already links to.
+{%- endcomment -%}
+<header class="site-header" role="banner">
+  <div class="wrapper">
+    <a class="site-title" rel="author" href="{{ "/" | relative_url }}">{{ site.title | escape }}</a>
+  </div>
+</header>

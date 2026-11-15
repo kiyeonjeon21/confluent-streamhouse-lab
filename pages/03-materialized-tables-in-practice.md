@@ -4,8 +4,6 @@ description: The continuous query that is not in the statement list, two CRITICA
 date: 2026-11-15
 ---
 
-# Materialized tables in practice
-
 *Part 3 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 A Flink materialized table on Confluent Cloud is one object that owns a table definition, its backing compacted topic, its schema, and the continuous query that fills it.

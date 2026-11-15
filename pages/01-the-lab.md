@@ -4,8 +4,6 @@ description: What a Confluent Streamhouse is made of, how I rebuilt the official
 date: 2026-11-15
 ---
 
-# The lab: a Streamhouse in Terraform, SQL files, and tests
-
 *Part 1 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 ## What a Streamhouse is
@@ -34,7 +32,7 @@ flowchart LR
   FS --> LT
   HI[hotel_inventory] --> LT
   LT --- RTCE[Real-Time Context Engine<br/>MCP]
-  RTCE --> AG{{rebooking agent<br/>managed Claude model}}
+  RTCE --> AG(["rebooking agent<br/>managed Claude model"])
   FH[flight_history] --> ICE[(Iceberg via Tableflow)]
 ```
 

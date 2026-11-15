@@ -4,8 +4,6 @@ description: A Flink snapshot query returns the same rows whether they come from
 date: 2026-11-15
 ---
 
-# Proving that Tableflow wrote Iceberg
-
 *Part 4 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 ## The problem with the obvious test

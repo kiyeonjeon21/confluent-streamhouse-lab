@@ -4,8 +4,6 @@ description: On a Confluent Cloud Basic cluster, the read-only role an MCP agent
 date: 2026-11-15
 ---
 
-# Basic clusters cannot hold a read-only agent
-
 *Part 2 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 ## The goal

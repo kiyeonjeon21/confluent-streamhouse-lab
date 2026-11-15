@@ -4,8 +4,6 @@ description: Measured freshness from a Kafka write to a Lightning read, query la
 date: 2026-11-15
 ---
 
-# How fresh is "real time"?
-
 *Part 6 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
 Lightning Tables are documented to update within 100 ms of data arriving in a topic.
