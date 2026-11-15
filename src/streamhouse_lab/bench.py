@@ -61,6 +61,17 @@ def probe_query(passenger_id: str = datagen.PROBE_PASSENGER) -> str:
     return passenger_lookup(passenger_id, "INBOUND_ARRIVAL")
 
 
+SOURCE_TOPIC = "bench_flight_status"
+FLIGHT_ID_RE = re.compile(r"^B-(IN|OUT)\d{5}$")
+
+
+def source_probe_query(flight_id: str) -> str:
+    """Reads the probe flight straight from the source topic, with no Flink statement in between."""
+    if not FLIGHT_ID_RE.match(flight_id):
+        raise ValueError(f"not a generated flight id: {flight_id!r}")
+    return f"SELECT ESTIMATED_TIME FROM {SOURCE_TOPIC} WHERE FLIGHT_ID = '{flight_id}'"  # noqa: S608
+
+
 async def run_freshness(
     session: QuerySession,
     producer: Producer,
@@ -74,8 +85,14 @@ async def run_freshness(
     jitter: float = 60.0,
     seed: int = 0,
     sleep: Sleep = asyncio.sleep,
+    topic: str = STATE_TOPIC,
+    query: str | None = None,
 ) -> None:
     """Write a uniquely valued update, then poll Lightning until the derived row shows it.
+
+    By default the poll reads the derived `bench_passenger_state`. With `topic` and
+    `query` pointing at the source topic, it measures Lightning's own ingest of a
+    plain (non-transactional) Kafka write instead.
 
     Each sample records two bounds, both relative to the broker acknowledgement:
     `not_seen_before_ms` (start of the last poll that did not see it) and
@@ -90,7 +107,7 @@ async def run_freshness(
     uniformly across it.
     """
     rng = random.Random(seed)  # noqa: S311 - reproducible spacing, not security
-    query = probe_query()
+    query = query or probe_query()
     for sample in range(samples):
         update = datagen.marker_update(probe_flight, sample)
         expected = update.value["estimated_time"].strftime(TIMESTAMP_TEXT)
@@ -99,7 +116,7 @@ async def run_freshness(
         last_miss_start = ack.acked_ns
         while True:
             started = recorder.now()
-            call = await session.query(STATE_TOPIC, query, 1)
+            call = await session.query(topic, query, 1)
             finished = recorder.now()
             polls += 1
             rows = result_rows(call.payload)
@@ -338,6 +355,160 @@ async def run_stage_latency(
         wait = gap + rng.uniform(0, jitter)
         recorder.event("gap", sample=sample, seconds=wait)
         await sleep(wait)
+
+
+# -- E5: an agent grounded in live context -------------------------------------
+#
+# The agent gets the passenger's landing time in its task and reads flight_status
+# and hotel_inventory through Lightning. The ra214-delayed event changes the correct
+# answer in all three fields, so each answer shows whether the agent saw the change.
+
+AGENT_BEFORE = "OFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel"
+AGENT_AFTER = "OFFER1=RA214;OFFER2=RA226;HOTEL=NONE"
+OFFER_LINE_RE = re.compile(r"OFFER1=[^;\s]*;OFFER2=[^;\s]*;HOTEL=[^\r\n]*")
+CHANGED_FLIGHT_QUERY = "SELECT STATUS FROM flight_status WHERE FLIGHT_ID = 'RA214'"
+CHANGED_FLIGHT_TOPIC = "flight_status"
+
+
+def offer_line(response: str | None) -> str | None:
+    """The last OFFER line in a response; models sometimes add a sentence before it."""
+    found = OFFER_LINE_RE.findall(response or "")
+    return found[-1].strip() if found else None
+
+
+def classify_offer(response: str | None) -> str:
+    """fresh: answered from the changed data; stale: from the data before the change;
+    other: some other offer; missing: no offer line at all."""
+    line = offer_line(response)
+    if line is None:
+        return "missing"
+    if line == AGENT_AFTER:
+        return "fresh"
+    if line == AGENT_BEFORE:
+        return "stale"
+    return "other"
+
+
+@dataclass
+class AgentRun:
+    """One invocation of an agent; `responses` has one entry per passenger it answered for."""
+
+    responses: list[str]
+    elapsed_ms: float
+    run_id: str | None = None  # the Flink statement name, which keys the agent's system log
+    tool_calls: int | None = None
+    turns: int | None = None
+    cost_usd: float | None = None
+    error: str | None = None
+
+
+@dataclass
+class AgentSteps:
+    reset: Callable[[], None]
+    change: Callable[[], None]
+    agents: dict[str, Callable[[], AgentRun]]
+
+
+async def poll_status(
+    session: QuerySession,
+    recorder: Recorder,
+    wanted: str,
+    reference_ns: int,
+    *,
+    poll_interval: float,
+    timeout: float,
+    sleep: Sleep,
+) -> dict:
+    """Poll RA214's status in Lightning until it reads `wanted`; bounds are relative to `reference_ns`."""
+    polls, last_miss_start = 0, reference_ns
+    while True:
+        started = recorder.now()
+        call = await session.query(CHANGED_FLIGHT_TOPIC, CHANGED_FLIGHT_QUERY, 1)
+        finished = recorder.now()
+        polls += 1
+        rows = result_rows(call.payload)
+        if rows and rows[0][0] == wanted:
+            return {
+                "not_seen_before_ms": (last_miss_start - reference_ns) / 1e6,
+                "seen_by_ms": (finished - reference_ns) / 1e6,
+                "polls": polls,
+            }
+        last_miss_start = started
+        if (finished - reference_ns) / 1e9 > timeout:
+            return {"error": "TIMEOUT", "polls": polls, "last_error": error_code(call.payload)}
+        await sleep(poll_interval)
+
+
+def describe_run(run: AgentRun) -> dict:
+    return {
+        "elapsed_ms": run.elapsed_ms,
+        "run_id": run.run_id,
+        "verdicts": [classify_offer(r) for r in run.responses],
+        "single_line": [len((r or "").strip().splitlines()) == 1 for r in run.responses],
+        "offers": [offer_line(r) for r in run.responses],
+        "responses": [(r or "")[:600] for r in run.responses],
+        "tool_calls": run.tool_calls,
+        "turns": run.turns,
+        "cost_usd": run.cost_usd,
+        "error": run.error,
+    }
+
+
+async def run_agent_freshness(
+    session: QuerySession,
+    steps: AgentSteps,
+    recorder: Recorder,
+    *,
+    offsets: list[float],
+    repeats: int,
+    seed: int = 0,
+    poll_interval: float = 0.25,
+    timeout: float = 120.0,
+    sleep: Sleep = asyncio.sleep,
+) -> None:
+    """For each cycle: restore RA214, wait until Lightning shows it on time, write the
+    delay, wait `offset` seconds, then run every agent at once on the same question.
+
+    Offsets are shuffled within each repeat with a seeded RNG, so drift over the run
+    does not line up with one offset. Lightning's own visibility of the delay is
+    polled in the same cycle, so each answer can be read against what the serving
+    layer showed at the time.
+    """
+    rng = random.Random(seed)  # noqa: S311 - reproducible order, not security
+    plan: list[float] = []
+    for _ in range(repeats):
+        order = list(offsets)
+        rng.shuffle(order)
+        plan += order
+    for cycle, offset in enumerate(plan):
+        await asyncio.to_thread(steps.reset)
+        polling = {"poll_interval": poll_interval, "timeout": timeout, "sleep": sleep}
+        reset = await poll_status(session, recorder, "ON_TIME", recorder.now(), **polling)
+        if "error" in reset:
+            recorder.event(
+                "sample", label="agent", cycle=cycle, offset_s=offset, error="RESET_" + reset["error"]
+            )
+            continue
+        await asyncio.to_thread(steps.change)
+        written = recorder.now()
+        visibility = asyncio.create_task(poll_status(session, recorder, "DELAYED", written, **polling))
+        await sleep(offset)
+        started = recorder.now()
+        names = list(steps.agents)
+        runs = await asyncio.gather(*(asyncio.to_thread(steps.agents[n]) for n in names))
+        seen = await visibility
+        recorder.event(
+            "sample",
+            label="agent",
+            cycle=cycle,
+            offset_s=offset,
+            started_after_ms=(started - written) / 1e6,
+            reset_seen_by_ms=reset.get("seen_by_ms"),
+            lightning=seen,
+            agents={n: describe_run(r) for n, r in zip(names, runs, strict=True)},
+        )
+    # Leave the quick start data as it was: RA214 on time.
+    await asyncio.to_thread(steps.reset)
 
 
 # -- Hybrid read: Iceberg history plus the Kafka tail ---------------------------

@@ -22,6 +22,7 @@ def test_expected_stages_exist() -> None:
         "agent",
         "bench",
         "hybrid",
+        "agent-log",
     ]
 
 

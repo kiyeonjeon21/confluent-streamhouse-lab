@@ -81,3 +81,38 @@ def to_markdown(summaries: list[Summary], unit: str = "ms") -> str:
         cells = [s.label, str(s.n), str(s.errors), fmt(s.p50), fmt(s.p95), fmt(s.p99), fmt(s.max)]
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
+
+
+def agent_table(path: Path) -> str:
+    """E5: answers by agent and offset (fresh / stale / other / missing) and median latency."""
+    _, events = load(path)
+    cells: dict[tuple[str, float], dict] = {}
+    for event in events:
+        if event.get("kind") != "sample" or event.get("label") != "agent" or event.get("error"):
+            continue
+        for agent, run in (event.get("agents") or {}).items():
+            cell = cells.setdefault(
+                (agent, event["offset_s"]),
+                {"fresh": 0, "stale": 0, "other": 0, "missing": 0, "errors": 0, "ms": [], "tools": []},
+            )
+            if run.get("error"):
+                cell["errors"] += 1
+            for verdict in run.get("verdicts") or []:
+                cell[verdict] += 1
+            cell["ms"].append(run["elapsed_ms"])
+            if run.get("tool_calls") is not None:
+                cell["tools"].append(run["tool_calls"])
+    lines = [
+        "| agent | offset (s) | fresh | stale | other | missing | run errors | p50 (s) | max (s) "
+        "| tool calls |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for (agent, offset), cell in sorted(cells.items()):
+        ordered = sorted(cell["ms"])
+        tools = f"{min(cell['tools'])}-{max(cell['tools'])}" if cell["tools"] else "-"
+        lines.append(
+            f"| {agent} | {offset:g} | {cell['fresh']} | {cell['stale']} | {cell['other']} | "
+            f"{cell['missing']} | {cell['errors']} | {nearest_rank(ordered, 50) / 1000:.1f} | "
+            f"{ordered[-1] / 1000:.1f} | {tools} |"
+        )
+    return "\n".join(lines)

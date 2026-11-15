@@ -209,11 +209,17 @@ def cmd_bench(args: argparse.Namespace) -> int:
                 from streamhouse_lab.kafka_io import BenchProducer
 
                 producer = BenchProducer.connect(cfg)
+                probe = datagen.probe_flight(dataset)
+                where = (
+                    {"topic": bench.SOURCE_TOPIC, "query": bench.source_probe_query(probe.key["flight_id"])}
+                    if args.read == "source"
+                    else {}
+                )
                 async with engine.session() as session:
                     await bench.run_freshness(
-                        session, producer, recorder, datagen.probe_flight(dataset),
+                        session, producer, recorder, probe,
                         samples=args.samples, poll_interval=args.poll, gap=args.gap,
-                        jitter=args.jitter, seed=args.seed,
+                        jitter=args.jitter, seed=args.seed, **where,
                     )  # fmt: skip
             elif args.action == "e3":
                 async with engine.session() as session:
@@ -247,10 +253,15 @@ def cmd_bench(args: argparse.Namespace) -> int:
                         watcher.stop()
             elif args.action == "hybrid":
                 run_hybrid_experiment(cfg, recorder, resume=args.resume)
+            elif args.action == "e5":
+                await run_agent_experiment(cfg, engine, recorder, args)
 
         asyncio.run(run())
         recorder.event("net", phase="after", host=host, **measure.probe_network(host))
     print(f"raw results: {recorder.path.relative_to(config.REPO_ROOT)}")
+    if args.action == "e5":
+        print(summarize.agent_table(recorder.path))
+        return 0
     metrics = {
         "e1": ["seen_by_ms"],
         "e2": ["read_uncommitted_ms", "read_committed_ms", "lightning_seen_by_ms"],
@@ -260,6 +271,51 @@ def cmd_bench(args: argparse.Namespace) -> int:
         print(f"\n{metric}")
         print(summarize.to_markdown(summarize.summarize_file(recorder.path, metric)[1]))
     return 0
+
+
+async def run_agent_experiment(cfg: config.LabConfig, engine: ContextEngine, recorder, args) -> None:
+    """Wire E5 to the real Flink agent, Claude Code, and the RA214 events."""
+    from streamhouse_lab import bench, external_agent
+
+    checks = sqlfiles.stage("agent-log").path / "checks"
+    check = sqlfiles.parse(checks / "rebooking-offers-logged.sql")
+    log_counts = sqlfiles.parse(checks / "agent-log-counts.sql")
+
+    def flink_agent(client: FlinkClient) -> bench.AgentRun:
+        name = sqlfiles.statement_name("check", "e5", str(int(time.time() * 1000)))
+        started = time.perf_counter()
+        try:
+            records = client.query(name, check.statement).records()
+        except Exception as exc:  # recorded per cycle; one failed run must not end the experiment
+            return bench.AgentRun(
+                [], (time.perf_counter() - started) * 1000, run_id=name, error=str(exc)[:300]
+            )
+        ordered = sorted(records, key=lambda r: str(r.get("passenger_id")))
+        return bench.AgentRun(
+            responses=[str(r.get("response") or "") for r in ordered],
+            elapsed_ms=(time.perf_counter() - started) * 1000,
+            run_id=name,
+            error=None if all(r.get("agent_status") == "SUCCESS" for r in ordered) else "AGENT_STATUS",
+        )
+
+    with FlinkClient(cfg) as events_client, FlinkClient(cfg) as agent_client:
+        agents = {"flink": lambda: flink_agent(agent_client)}
+        if args.external == "claude-code":
+            agents["claude_code"] = lambda: external_agent.run(cfg)
+        steps = bench.AgentSteps(
+            reset=lambda: stages.run_event(events_client, "ra214-on-time"),
+            change=lambda: stages.run_event(events_client, "ra214-delayed"),
+            agents=agents,
+        )
+        async with engine.session() as session:
+            await bench.run_agent_freshness(
+                session, steps, recorder,
+                offsets=[float(x) for x in args.offsets.split(",")], repeats=args.rounds, seed=args.seed,
+            )  # fmt: skip
+        # Tool and model calls per run, from the agent's system log (one snapshot query).
+        name = sqlfiles.statement_name("check", "e5-log", str(int(time.time())))
+        rows = agent_client.query(name, log_counts.statement).records()
+        recorder.event("agent_log", rows=rows)
 
 
 def run_hybrid_experiment(cfg: config.LabConfig, recorder, *, resume: bool = False) -> None:
@@ -375,7 +431,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_iceberg)
 
     p = sub.add_parser("bench", help="Phase 4: generate data, run experiments, summarize results")
-    p.add_argument("action", choices=["gen", "e1", "e2", "e3", "e4", "hybrid", "summarize"])
+    p.add_argument("action", choices=["gen", "e1", "e2", "e3", "e4", "e5", "hybrid", "summarize"])
     p.add_argument("file", nargs="?", help="results file for summarize")
     p.add_argument("--passengers", type=int, default=10_000)
     p.add_argument("--seed", type=int, default=7)
@@ -395,6 +451,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--duration", type=float, default=30.0, help="e4: seconds per level")
     p.add_argument("--metric", default="latency_ms", help="summarize: field to summarize")
     p.add_argument("--resume", action="store_true", help="hybrid: start after the old batch was truncated")
+    p.add_argument(
+        "--read",
+        choices=["state", "source"],
+        default="state",
+        help="e1: poll the derived bench_passenger_state, or bench_flight_status itself",
+    )
+    p.add_argument("--offsets", default="0,5,15,30", help="e5: seconds between the change and the agents")
+    p.add_argument("--rounds", type=int, default=5, help="e5: cycles per offset")
+    p.add_argument(
+        "--external",
+        choices=["claude-code", "none"],
+        default="claude-code",
+        help="e5: also run the task in an external MCP client",
+    )
     p.set_defaults(func=cmd_bench)
 
     p = sub.add_parser("chart", help="Phase 4: render recorded results as blog figures (offline)")
