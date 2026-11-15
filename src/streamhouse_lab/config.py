@@ -43,6 +43,8 @@ class LabConfig:
     context_reader: ApiKey | None
     lightning_topics: tuple[str, ...]
     tableflow_topics: tuple[str, ...]
+    tableflow_catalog_endpoint: str | None = None
+    operator_tableflow: ApiKey | None = None
 
     @property
     def cloud(self) -> str:
@@ -86,6 +88,8 @@ def load(read_outputs: OutputReader = terraform_outputs) -> LabConfig:
 
     context_key = value("context_reader_api_key", required=False)
     context_secret = value("context_reader_api_secret", required=False)
+    tableflow_key = value("operator_tableflow_api_key", required=False)
+    tableflow_secret = value("operator_tableflow_api_secret", required=False)
 
     return LabConfig(
         organization_id=value("organization_id"),
@@ -105,4 +109,8 @@ def load(read_outputs: OutputReader = terraform_outputs) -> LabConfig:
         ),
         lightning_topics=tuple(value("lightning_topics", required=False) or ()),
         tableflow_topics=tuple(value("tableflow_topics", required=False) or ()),
+        tableflow_catalog_endpoint=value("tableflow_catalog_endpoint", required=False),
+        operator_tableflow=(
+            ApiKey(tableflow_key, Secret(tableflow_secret)) if tableflow_key and tableflow_secret else None
+        ),
     )

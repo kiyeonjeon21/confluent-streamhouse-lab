@@ -22,7 +22,7 @@ What was verified before building, including limits and prices: [docs/discovery.
 ## Status
 
 - Phase 1 (discovery) and Phase 2 (repository) are done.
-- Phase 3 steps 1 and 2 are done: capabilities 1 to 4 passed on 2026-11-15 in us-east-1 on a Basic cluster.
+- Phase 3 steps 1 to 3 are done: capabilities 1 to 5 passed on 2026-11-15 in us-east-1 on a Basic cluster.
 - [docs/plan.md](docs/plan.md) lists each billable step and what it creates.
 - Capability results are recorded in [docs/capabilities](docs/capabilities/README.md) as they are run.
 

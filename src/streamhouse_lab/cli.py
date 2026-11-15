@@ -150,6 +150,22 @@ def cmd_context(args: argparse.Namespace) -> int:
     return 1 if any(c.is_error for c in results) else 0
 
 
+def cmd_iceberg(args: argparse.Namespace) -> int:
+    """Read a Tableflow table straight from Iceberg, without Flink or Kafka."""
+    from streamhouse_lab import iceberg  # pyiceberg is heavy; import only when used
+
+    table = iceberg.load(config.load(), args.table)
+    snaps = iceberg.snapshots(table)
+    print(f"format v{table.format_version}, {len(snaps)} snapshots")
+    for snap in snaps[-5:]:
+        print(f"  {snap.committed_at:%Y-%m-%dT%H:%M:%SZ}  {snap.operation}  {snap.snapshot_id}")
+    records = iceberg.rows(table)
+    columns = [*iceberg.business_columns(table), f"{iceberg.METADATA_PREFIX}offset"]
+    print()
+    print_table(QueryResult(columns=columns, rows=[[r[c] for c in columns] for r in records]))
+    return 0
+
+
 def cmd_agent_connection(args: argparse.Namespace) -> int:
     cfg = config.load()
     if args.action == "create":
@@ -200,6 +216,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("query", nargs="?", help='SQL for queryData, e.g. "SELECT * FROM passenger_state LIMIT 5"')
     p.add_argument("--rows", type=int, default=50, help="max_result_rows (1-200)")
     p.set_defaults(func=cmd_context)
+
+    p = sub.add_parser("iceberg", help="read a Tableflow table directly from Iceberg (no Flink)")
+    p.add_argument("table")
+    p.set_defaults(func=cmd_iceberg)
 
     p = sub.add_parser("agent-connection", help="manage the agent's MCP connection to the context engine")
     p.add_argument("action", choices=["create", "show", "delete"])

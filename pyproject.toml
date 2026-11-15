@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
     "mcp>=2.3.0",
+    "pyiceberg[pyarrow,s3fs]>=0.12.0",
 ]
 
 [project.scripts]

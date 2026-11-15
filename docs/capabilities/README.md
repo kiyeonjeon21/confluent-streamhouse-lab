@@ -19,5 +19,5 @@ A section that says **not run yet** has not been run.
 | 2 | [Flink SQL transformations and joins](02-flink-transform.md) | passed 2026-11-15 |
 | 3 | [Continuously maintained passenger state](03-passenger-state.md) | passed 2026-11-15, two CRITICAL Flink warnings |
 | 4 | [Lightning Tables](04-lightning-tables.md) | passed 2026-11-15, reader needs CloudClusterAdmin on Basic |
-| 5 | [Tableflow and Iceberg](05-tableflow.md) | not run yet |
+| 5 | [Tableflow and Iceberg](05-tableflow.md) | passed 2026-11-15, verified in Iceberg directly |
 | 6 | [AI agent access through MCP](06-agent-mcp.md) | not run yet |

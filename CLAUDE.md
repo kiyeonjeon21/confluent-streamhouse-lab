@@ -9,14 +9,14 @@ Vendor-neutral and open source Streamhouse experiments belong in the separate `s
   Wrap credentials in `redact.Secret` / `redact.ApiKey` the moment they are read.
 - Never run `terraform apply`, `terraform destroy`, `scripts/deploy`, `scripts/cleanup`, `scripts/verify-live`, or any Confluent CLI command that creates, changes, or deletes cloud resources without the owner's explicit approval for that specific action.
   `scripts/deploy --plan`, `scripts/cleanup --verify`, `uv run lab doctor`, and read-only `confluent ... list/describe` are fine.
-- Every live test and every `uv run lab apply|check|event|query|context` call is billed. Ask first.
+- Every live test and every `uv run lab apply|check|event|query|context|iceberg` call is billed. Ask first.
 - Do not touch the organization's other environments.
 
 ## Layout
 
 - `terraform/` - platform (`main.tf`), Lightning Tables and the context reader (`lightning.tf`), Tableflow (`tableflow.tf`). Local state, gitignored, mode 600.
 - `sql/<NN>-<stage>/` - one statement per file, applied in name order by `uv run lab apply <stage>`; `checks/` holds snapshot queries; `sql/events/` holds replayable business events.
-- `src/streamhouse_lab/` - `uv run lab` CLI: Flink statements API client, stage runner, RTCE MCP client, agent connection.
+- `src/streamhouse_lab/` - `uv run lab` CLI: Flink statements API client, stage runner, RTCE MCP client, Tableflow Iceberg reader, agent connection.
 - `tests/unit/` - offline, run by default. `tests/live/` - marked `live`, billed, ordered by capability.
 - `docs/` - discovery, architecture, plan, one page per capability, Phase 4 methodology.
 

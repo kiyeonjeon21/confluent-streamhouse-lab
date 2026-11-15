@@ -75,3 +75,18 @@ output "context_reader_api_secret" {
   value     = one(confluent_api_key.context_reader_global[*].secret)
   sensitive = true
 }
+
+output "tableflow_catalog_endpoint" {
+  description = "Tableflow Iceberg REST Catalog for this environment. Tables live in the namespace named after the cluster ID."
+  value       = "https://tableflow.${var.cloud_region}.aws.confluent.cloud/iceberg/catalog/organizations/${data.confluent_organization.this.id}/environments/${confluent_environment.lab.id}"
+}
+
+output "operator_tableflow_api_key" {
+  value     = one(confluent_api_key.operator_tableflow[*].id)
+  sensitive = true
+}
+
+output "operator_tableflow_api_secret" {
+  value     = one(confluent_api_key.operator_tableflow[*].secret)
+  sensitive = true
+}

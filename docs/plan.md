@@ -60,7 +60,7 @@ Keeps billing: Lightning storage for three small tables, and compute while data 
 
 Creates: the `flight_history` table and six rows, the operator's Tableflow API key, and an Iceberg table in Confluent Managed Storage.
 
-Verify: `uv run lab check history`, `scripts/verify-live capability_5`.
+Verify: `uv run lab check history` (Flink), `uv run lab iceberg flight_history` (Iceberg alone), `scripts/verify-live capability_5` (both).
 
 Keeps billing: one Tableflow topic-hour per hour, plus managed storage.
 

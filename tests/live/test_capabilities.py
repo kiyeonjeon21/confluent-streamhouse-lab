@@ -137,6 +137,24 @@ def test_capability_5_tableflow_history(cfg, flink) -> None:
     if "flight_history" not in cfg.tableflow_topics:
         pytest.skip("result came from Kafka only; Tableflow is not enabled on flight_history yet")
 
+    # The Flink result is identical whether it came from Kafka or Iceberg, so read
+    # the Iceberg snapshot directly to prove Tableflow materialized the rows.
+    from streamhouse_lab import iceberg
+
+    def iceberg_rows():
+        return iceberg.rows(iceberg.load(cfg, "flight_history"))
+
+    records, _ = eventually(iceberg_rows, timeout=1200, interval=30)
+    per_flight: dict[str, list[int]] = {}
+    for r in records:
+        agg = per_flight.setdefault(r["flight_id"], [0, 0, 0])
+        agg[0] += 1
+        agg[1] += r["delay_minutes"] > 15
+        agg[2] += r["affected_passengers"]
+    assert {k: [str(x) for x in v] for k, v in per_flight.items()} == {
+        k: [v["flights"], v["delayed"], v["impacted"]] for k, v in expected.items()
+    }
+
 
 def test_capability_6_rebooking_agent(cfg, flink) -> None:
     if cfg.context_reader is None or "hotel_inventory" not in cfg.lightning_topics:

@@ -46,3 +46,24 @@ def test_missing_required_output_is_a_clear_error() -> None:
 def test_secret_is_falsy_when_empty() -> None:
     assert not Secret("")
     assert Secret("x")
+
+
+def test_tableflow_settings_are_optional_and_masked() -> None:
+    without = config.load(lambda: fake_outputs())
+    assert without.operator_tableflow is None
+    with_key = config.load(
+        lambda: fake_outputs(
+            tableflow_catalog_endpoint="https://tableflow.us-east-1.aws.confluent.cloud/iceberg/catalog/x",
+            operator_tableflow_api_key="TFKEY",
+            operator_tableflow_api_secret=FAKE_SECRET,
+        )
+    )
+    assert with_key.operator_tableflow is not None
+    assert FAKE_SECRET not in repr(with_key)
+
+
+def test_iceberg_catalog_requires_tableflow_key(lab_config: config.LabConfig) -> None:
+    from streamhouse_lab import iceberg
+
+    with pytest.raises(config.ConfigError, match="tableflow_topics"):
+        iceberg.catalog(lab_config)

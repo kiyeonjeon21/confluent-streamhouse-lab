@@ -106,7 +106,7 @@ From the Lightning Tables, Tableflow, Flink, and RTCE documentation:
 - A Lightning Table needs a registered Avro, Protobuf, or JSON Schema value schema.
   Upsert mode also needs a compacted topic and a record key; key schema changes are not supported.
 - MCP `queryData` returns at most 200 rows, times out after 20 seconds, requires `max_result_rows`, and is rate limited.
-- Tableflow needs schemas on both key and value, does not support retract tables, keeps 10 to 100 snapshots, and, with managed storage, cannot sync to external catalogs.
+- Tableflow is documented to need schemas on both key and value (a key-less topic worked in practice, see [capability 5](capabilities/05-tableflow.md)), does not support retract tables, keeps 10 to 100 snapshots, and, with managed storage, cannot sync to external catalogs.
 - Flink reads Tableflow tables only in snapshot queries.
 - A materialized table evolution discards state and rebuilds; upsert outputs can keep stale keys that a stricter new query no longer emits.
 - A compute pool's `max_cfu` can be raised but never lowered.
