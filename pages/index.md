@@ -6,7 +6,7 @@ layout: landing
 
 <section class="home-hero">
   <div class="home-hero__copy">
-    <p class="eyebrow">Seven chapters · One reproducible lab · Measured from Seoul</p>
+    <p class="eyebrow">A seven-part lab series</p>
     <h1>How real-time is a Streamhouse?</h1>
     <p class="home-hero__dek">I rebuilt Confluent's River Air Streamhouse as Terraform, version-controlled Flink SQL, and automated tests, then measured the path from a Kafka write to derived state, Iceberg history, and an AI agent.</p>
     <p class="home-hero__summary">The architecture worked. The surprise was time: in this setup, derived state reached Lightning Tables in <strong>44.3 seconds at p50</strong>, and most of the wait was Flink's exactly-once commit, which Confluent documents at about once a minute.</p>
@@ -27,24 +27,12 @@ layout: landing
   </aside>
 </section>
 
-<nav class="reader-paths" aria-labelledby="reader-paths-title">
-  <div class="reader-paths__heading">
-    <p class="section-label">Choose a reading path</p>
-    <h2 id="reader-paths-title">Start with the question you need answered</h2>
-  </div>
-  <div class="reader-paths__links">
-    <a href="{{ '/01-the-lab.html' | relative_url }}"><span>Understand the system</span><strong>Architecture and reproducible lab</strong></a>
-    <a href="{{ '/02-basic-clusters-and-read-only-agents.html' | relative_url }}"><span>Plan safe operations</span><strong>Security and runtime constraints</strong></a>
-    <a href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}"><span>Inspect the evidence</span><strong>Freshness, latency, and throughput</strong></a>
-    <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}"><span>Make a decision</span><strong>Fit, trade-offs, and open questions</strong></a>
-  </div>
-</nav>
 
 <section class="home-section home-section--metrics" aria-labelledby="measured-title">
   <div class="section-heading">
     <div>
-      <p class="section-label">Measured, not estimated</p>
-      <h2 id="measured-title">The numbers that changed the conclusion</h2>
+      <p class="section-label">Measurements</p>
+      <h2 id="measured-title">What I measured</h2>
     </div>
     <p>The first three figures come from the benchmarks in Chapter 6 and the Iceberg timing from Chapter 4. All of them describe one configuration: a Basic cluster in <code>us-east-1</code>, measured from Seoul. The chapters include the method, sample size, raw distributions, and limitations.</p>
   </div>
@@ -76,7 +64,7 @@ layout: landing
   <div class="section-heading">
     <div>
       <p class="section-label">Architecture</p>
-      <h2 id="architecture-section-title">Current state and history share Kafka as the interface</h2>
+      <h2 id="architecture-section-title">Kafka topics connect every layer</h2>
     </div>
     <p>Flink defines the business state once. Lightning serves that state to applications and agents, while Tableflow carries topic history into Iceberg.</p>
   </div>
@@ -86,14 +74,14 @@ layout: landing
 <section class="home-section home-section--findings" aria-labelledby="findings-title">
   <div class="section-heading">
     <div>
-      <p class="section-label">What held up</p>
-      <h2 id="findings-title">A useful architecture with sharp operational edges</h2>
+      <p class="section-label">Findings</p>
+      <h2 id="findings-title">What worked, and what to watch</h2>
     </div>
   </div>
   <div class="finding-columns">
     <article>
       <span class="finding-columns__mark finding-columns__mark--yes" aria-hidden="true">✓</span>
-      <h3>The core path worked</h3>
+      <h3>Worked</h3>
       <ul>
         <li>All six capabilities matched the quick start's expected result.</li>
         <li>A Flink snapshot query combined Iceberg-only history with Kafka-only new rows.</li>
@@ -102,7 +90,7 @@ layout: landing
     </article>
     <article>
       <span class="finding-columns__mark finding-columns__mark--caution" aria-hidden="true">!</span>
-      <h3>The constraints matter</h3>
+      <h3>Watch out for</h3>
       <ul>
         <li>Derived state arrived in tens of seconds, because exactly-once output commits about once a minute.</li>
         <li>A Basic cluster could not give the MCP reader least privilege.</li>
@@ -115,10 +103,10 @@ layout: landing
 <section class="home-section" aria-labelledby="chapters-title">
   <div class="section-heading">
     <div>
-      <p class="section-label">The field notes</p>
-      <h2 id="chapters-title">Seven chapters, from build to verdict</h2>
+      <p class="section-label">Chapters</p>
+      <h2 id="chapters-title">The series</h2>
     </div>
-    <p>Read in order for the full investigation, or jump directly to the implementation detail or benchmark you need.</p>
+    <p>Read them in order, or start with the chapter you need.</p>
   </div>
   {% include chapter-grid.html %}
 </section>
@@ -126,7 +114,7 @@ layout: landing
 <section class="method-note" aria-labelledby="method-title">
   <div>
     <p class="section-label">Method</p>
-    <h2 id="method-title">Built to be challenged and repeated</h2>
+    <h2 id="method-title">How the lab is built</h2>
   </div>
   <p>The lab uses Terraform, version-controlled SQL, separate benchmark tables, 137 offline unit tests, and six live tests that check each capability against a real deployment. Every measured chapter states its sample size and what the run could not prove. The environment was torn down between sessions and rebuilt from code.</p>
   {%- if site.repository_public %}

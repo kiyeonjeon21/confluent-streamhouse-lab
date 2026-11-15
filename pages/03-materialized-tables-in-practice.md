@@ -9,9 +9,9 @@ takeaways:
   - label: "Observed"
     text: "The official River Air query raised two CRITICAL warnings: a key mismatch and unbounded join state."
   - label: "Interpretation"
-    text: "A finished CREATE statement still owns a billed continuous query, and a 5-second sink flush does not imply 5-second downstream visibility."
+    text: "The CREATE statement shows COMPLETED while its continuous query keeps running and billing, and a 5-second sink flush didn't mean 5-second freshness downstream."
   - label: "Limitation"
-    text: "The warnings were observed on the quick-start query and small lab data; this run did not quantify long-term state growth."
+    text: "With lab-sized data the warnings had no visible effect, and I didn't measure how state grows over time."
 ---
 
 A Flink materialized table on Confluent Cloud is a single object that owns a table definition, its backing compacted topic, its schema, and the continuous query that fills it.
@@ -69,8 +69,6 @@ Stream Lineage does show them, as Flink nodes between the source topics and thei
 
 If you monitor or clean up Flink by listing statements, you will miss the part that is billed around the clock.
 The lab's status command now reads both lists.
-
-> **Operational trap:** A clean statement list does not mean Flink has stopped consuming CFUs. Materialized tables have their own lifecycle and status API.
 
 ## 2. The official example carries two CRITICAL warnings
 

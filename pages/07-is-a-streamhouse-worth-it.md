@@ -9,9 +9,9 @@ takeaways:
   - label: "Observed"
     text: "One Flink definition of passenger state fed both the Lightning reads and the agent, while Tableflow preserved history without another export pipeline."
   - label: "Interpretation"
-    text: "As tested, with default exactly-once delivery, this setup fits operational decisions that tolerate tens of seconds, not sub-second read-your-write paths or serving-layer analytics."
+    text: "As tested, with default exactly-once delivery, it fits operational decisions that can wait tens of seconds. It doesn't fit sub-second read-your-write paths or analytics on the serving layer."
   - label: "Limitation"
-    text: "Production evaluation still needs realistic scan-cost tests and a cluster tier that can give agent credentials least privilege."
+    text: "Before production I'd test scan cost at realistic table sizes and use a cluster type that gives agent credentials least privilege."
 ---
 
 The first six parts were about how the pieces behave.

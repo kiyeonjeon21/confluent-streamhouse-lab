@@ -9,9 +9,9 @@ takeaways:
   - label: "Observed"
     text: "DeveloperRead failed at topic and cluster scope; Kafka READ ACLs were accepted but authorized none of the three Real-Time Context Engine tools."
   - label: "Interpretation"
-    text: "CloudClusterAdmin worked, but it turns a read-only MCP client into an over-privileged credential."
+    text: "CloudClusterAdmin worked, so a client with read-only tools ended up holding a key that can administer the cluster."
   - label: "Limitation"
-    text: "These attempts establish the Basic-cluster boundary; use a tier that supports resource roles to test least privilege."
+    text: "I only tested Basic. Least privilege needs a cluster type with resource roles, such as Standard."
 ---
 
 ## The goal
@@ -74,10 +74,9 @@ My conclusion is that the engine checks the RBAC authorization service and ignor
 
 `CloudClusterAdmin` on the lab's one cluster is a cluster-level role rather than a resource role, so Basic accepts it.
 With it, `listTopics` worked on the first call.
+That makes the narrowest credential that worked for a read-only MCP client on this Basic cluster one that can also administer the cluster.
 
-> **Security finding:** On this Basic cluster, the narrowest credential that worked for a read-only MCP client could also administer the cluster.
-
-So the options are these:
+The options are these:
 
 | Option | Credential privilege | Cluster requirement or trade-off |
 |---|---|---|

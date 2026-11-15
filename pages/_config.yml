@@ -8,9 +8,8 @@ description: >-
   Tableflow, and a streaming agent on Confluent Cloud, with measured results.
 lang: en
 repository_url: https://github.com/kiyeonjeon21/confluent-streamhouse-lab
-# The repository is private, so a link to it is a 404 for readers.
-# Set this to true after making the repository public to show the links again.
-repository_public: false
+# Set to false while the repository is private; a link to it would be a 404 for readers.
+repository_public: true
 
 # minima 2.5.1 is the version the github-pages gem pins.
 theme: minima

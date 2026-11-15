@@ -346,67 +346,6 @@ button:focus-visible {
   color: var(--ink);
 }
 
-.reader-paths {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 2fr);
-  gap: 32px;
-  margin-top: 72px;
-  padding: 26px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
-
-.reader-paths__heading h2 {
-  margin: 0;
-  color: var(--ink);
-  font-size: 22px;
-  letter-spacing: -0.025em;
-  line-height: 1.25;
-}
-
-.reader-paths__links {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--line);
-}
-
-.reader-paths__links a {
-  display: block;
-  min-width: 0;
-  padding: 16px 18px;
-  background: var(--paper);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.reader-paths__links a:hover {
-  background: var(--accent-soft);
-  color: var(--ink);
-}
-
-.reader-paths__links span,
-.reader-paths__links strong {
-  display: block;
-}
-
-.reader-paths__links span {
-  margin-bottom: 3px;
-  color: var(--accent-dark);
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.reader-paths__links strong {
-  font-size: 13px;
-  line-height: 1.4;
-}
-
 .home-section {
   margin-top: 104px;
 }
@@ -1491,11 +1430,6 @@ button:focus-visible {
     max-width: 620px;
   }
 
-  .reader-paths {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
   .metric-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -1601,14 +1535,6 @@ button:focus-visible {
 
   .home-hero__dek {
     font-size: 18px;
-  }
-
-  .reader-paths {
-    margin-top: 52px;
-  }
-
-  .reader-paths__links {
-    grid-template-columns: 1fr;
   }
 
   .home-section {

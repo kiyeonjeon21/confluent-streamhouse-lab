@@ -14,7 +14,7 @@
   url: /03-materialized-tables-in-practice.html
   title: Materialized tables in practice
   short_title: Materialized tables
-  summary: Hidden continuous queries, two CRITICAL warnings, and the settings behind freshness.
+  summary: A continuous query missing from the statement list, two CRITICAL warnings, and what sets freshness.
   label: Flink
 - part: 4
   url: /04-proving-tableflow-wrote-iceberg.html
@@ -26,17 +26,17 @@
   url: /05-a-streaming-agent-grounded-in-live-state.html
   title: A streaming agent grounded in live state
   short_title: Streaming agent
-  summary: A managed model, an MCP tool, and the operational limits behind a correct answer.
+  summary: A managed Claude model looks up live flights and hotels over MCP and gets the rebooking right.
   label: AI agents
 - part: 6
   url: /06-how-fresh-is-real-time.html
   title: How fresh is "real time"?
   short_title: Freshness benchmarks
-  summary: End-to-end freshness, query latency, scanned bytes, and concurrency with measured data.
+  summary: Freshness from a Kafka write to a Lightning read, query latency, scanned bytes, and concurrency.
   label: Benchmarks
 - part: 7
   url: /07-is-a-streamhouse-worth-it.html
   title: Is a Streamhouse worth it?
-  short_title: The verdict
+  short_title: Is it worth it?
   summary: Where the architecture fits, where it does not, and what remains unproven.
-  label: Decision guide
+  label: Conclusion

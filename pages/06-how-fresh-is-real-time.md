@@ -92,7 +92,7 @@ That way each write is observed three times: when Flink writes it, when it's com
 | Visible in Lightning | 17.5 | 44.3 | 66.9 | 68.2 | 42.8 |
 
 <figure class="benchmark-chart benchmark-chart--timeline" aria-labelledby="freshness-chart-title">
-  <figcaption id="freshness-chart-title"><strong>Cumulative p50 after the broker acknowledged the source write</strong><span>Scale ends at Lightning visibility, 44.3 seconds. The table above remains the complete result.</span></figcaption>
+  <figcaption id="freshness-chart-title"><strong>Cumulative p50 after the broker acknowledged the source write</strong><span>Scale ends at Lightning visibility, 44.3 seconds.</span></figcaption>
   <div class="benchmark-axis" aria-hidden="true"><span></span><div><span>0</span><span>44.3 s</span></div><span></span></div>
   <div class="benchmark-chart__plot" aria-hidden="true">
     <div class="benchmark-row"><span>Flink wrote output</span><div><i class="bar--fresh-write"></i></div><strong>2.6 s</strong></div>

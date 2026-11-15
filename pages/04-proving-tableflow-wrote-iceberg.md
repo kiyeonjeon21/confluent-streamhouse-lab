@@ -9,9 +9,9 @@ takeaways:
   - label: "Observed"
     text: "A direct pyiceberg read found all six source rows at offsets 0 through 5 in the managed Iceberg catalog."
   - label: "Interpretation"
-    text: "After Kafka records were deleted, one Flink snapshot query combining Iceberg-only old rows with Kafka-only new rows proved the hybrid path."
+    text: "After I deleted the Kafka records, one Flink snapshot query returned old rows that existed only in Iceberg and new rows that existed only in Kafka."
   - label: "Limitation"
-    text: "Six reconciled rows establish correctness for this path, not compaction, retention, or query behavior at analytical scale."
+    text: "Six rows show the path is correct. They say nothing about compaction, retention, or analytical queries at scale."
 ---
 
 ## Why the obvious test proves nothing
@@ -130,13 +130,9 @@ accDescr: Old rows move from Kafka to Iceberg and are deleted from Kafka. New ro
   F --> ALL[All six rows]
 ```
 
-*At the final step, the two stores contain disjoint data. The combined result is direct evidence that Flink read both paths.*
-
 In the second row Kafka had nothing left and Flink still returned the old rows, so it read them from Iceberg.
 In the third row the old rows were only in Iceberg and the new ones only in Kafka, because Tableflow hadn't caught up yet.
-One snapshot query returned all six, 6.6 seconds after I wrote the new batch.
-
-> **Proof:** The old rows existed only in Iceberg and the new rows existed only in Kafka. Returning all six in one result rules out either source acting alone.
+One snapshot query returned all six, 6.6 seconds after I wrote the new batch, which neither source could have produced on its own.
 
 Deleting the Kafka records left the Iceberg table alone, so a topic can keep a short, cheap retention while queries still see the full history.
 

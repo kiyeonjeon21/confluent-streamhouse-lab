@@ -9,13 +9,13 @@
       <span class="site-mark" aria-hidden="true">S</span>
       <span>
         <strong>{{ site.short_title | escape }}</strong>
-        <small>Independent engineering research</small>
+        <small>Confluent Cloud lab notes</small>
       </span>
     </a>
     <nav class="site-nav" aria-label="Primary navigation">
       <a class="site-nav__optional" href="{{ '/' | relative_url }}"{% if page.url == '/' %} aria-current="page"{% endif %}>Overview</a>
       <a href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}"{% if page.part == 6 %} aria-current="page"{% endif %}>Benchmarks</a>
-      <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}"{% if page.part == 7 %} aria-current="page"{% endif %}>Verdict</a>
+      <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}"{% if page.part == 7 %} aria-current="page"{% endif %}>Conclusion</a>
       {%- if site.repository_public %}
       <a class="site-nav__optional" href="{{ site.repository_url }}">GitHub</a>
       {%- endif %}

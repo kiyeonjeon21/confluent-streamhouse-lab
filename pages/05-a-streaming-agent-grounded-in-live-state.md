@@ -9,9 +9,9 @@ takeaways:
   - label: "Observed"
     text: "The managed Claude model queried live flights and hotels through MCP and returned the expected two offers and hotel for both passengers."
   - label: "Interpretation"
-    text: "AI_RUN_AGENT requires append-only input, so at-risk rows need a bridge out of the upsert materialized table."
+    text: "AI_RUN_AGENT accepts only append-only input, so at-risk rows are copied out of the upsert materialized table first."
   - label: "Limitation"
-    text: "Only two runs were tested; both missed the requested format, and the Basic-cluster tool credential still held CloudClusterAdmin."
+    text: "Two runs only. The model ignored the one-line format both times, and on Basic the tool's credential held CloudClusterAdmin."
 ---
 
 ## The agent stack
@@ -103,8 +103,6 @@ That's exactly the answer the quick start expects.
 The agent skipped RA214, which now leaves only 40 minutes after the delayed arrival.
 It added a hotel because RA232 leaves the next morning, and it passed over the sold-out Airport Bayfront Inn.
 The prompt contains no flight or hotel data, so the agent got all of this from live Lightning reads.
-
-> **Agent result:** Both passengers received `RA226`, `RA232`, and Harbor Point Hotel. The model found every option through the MCP tool rather than from data embedded in the prompt.
 
 ## Operational limits
 

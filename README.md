@@ -1,7 +1,9 @@
 # confluent-streamhouse-lab
 
 A reproducible, test-driven lab for the Confluent Cloud Streamhouse.
-It rebuilds Confluent's River Air quick start with Terraform and version-controlled Flink SQL, verifies each capability with automated tests, and then measures freshness, latency, throughput, agent behavior, failure recovery, and cost.
+It rebuilds Confluent's River Air quick start with Terraform and version-controlled Flink SQL, verifies each capability with automated tests, and then measures freshness, query latency, and throughput.
+
+The write-up is a seven-part series: <https://kiyeonjeon21.github.io/confluent-streamhouse-lab/>.
 
 Vendor-neutral and open source Streamhouse experiments live in a separate `streamhouse-lab` repository.
 

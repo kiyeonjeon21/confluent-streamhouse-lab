@@ -9,9 +9,9 @@ takeaways:
   - label: "Observed"
     text: "All six capabilities passed: Kafka sources, Flink transforms, materialized state, Lightning reads, Iceberg history, and the rebooking agent."
   - label: "Interpretation"
-    text: "The managed layers exchange data through Kafka topics; Flink remains the single definition of derived business state."
+    text: "The layers exchange data through Kafka topics, so the derived-state logic is written once, in Flink."
   - label: "Limitation"
-    text: "This disposable lab proves the integration path, not production-scale reliability, cost, or operating practice."
+    text: "A small, disposable lab: it shows the pieces fit together and says little about reliability, cost, or operations at production scale."
 ---
 
 ## What a Streamhouse is
@@ -96,7 +96,7 @@ Some of what I read had already drifted, so I checked these instead of assuming:
 
 ## What passed
 
-> **Result:** All six capabilities matched the quick start, including the agent's output.
+All six capabilities matched the quick start, including the agent's output.
 
 | # | Capability | Result |
 |---|---|---|
