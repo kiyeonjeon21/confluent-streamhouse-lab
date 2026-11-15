@@ -107,7 +107,7 @@ The slowest point lookup was the first call of the run.
 
 After the experiments, the console's Lightning Tables page showed how much data queries had scanned per table:
 
-![Lightning Tables page: bench_passenger_state shows 7.96 GB scanned](assets/lightning-tables-scanned-bytes.png)
+[![Lightning Tables page: bench_passenger_state shows 7.96 GB scanned](assets/lightning-tables-scanned-bytes.png)](assets/lightning-tables-scanned-bytes.png)
 
 *Confluent Cloud console, 2026-11-15, after E1, E3, and E4.*
 
