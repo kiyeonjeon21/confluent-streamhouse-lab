@@ -100,6 +100,13 @@ Command: `lab bench e4 --levels 1,2,4,8,16,32 --duration 30`, closed loop, point
 - No request failed and no `RATE_LIMIT_EXCEEDED` appeared, so the documented rate limit was not reached at 40 req/s.
 - The knee at 32 may be the client: 32 TLS sessions on one asyncio loop on a laptop. A run with several client processes, or from inside the region, is needed before attributing it to the service.
 
+## Scanned bytes (console, after the runs)
+
+The Lightning Tables page in the console showed `bench_passenger_state` with 7.96 GB scanned and a size of 0 B; `passenger_state` showed 317.76 KB scanned.
+The recorded runs sent 5,830 queries to `bench_passenger_state` (E1 first run 1,643 polls, E1 second run 1,309, E3 300, E4 2,578), about 1.4 MB scanned per query on a 10,000-row table, most of them primary-key lookups.
+This suggests queries scan most of the table rather than seeking one key, which would make scanned bytes, and so CCU cost, grow with table size.
+Unconfirmed: the reported size of 0 B gives nothing to compare against. Measure at 100,000 rows, ideally with the `dp_scanned_bytes` metric from the Metrics API.
+
 ## Cost
 
 Not yet broken down: the billing page lags, so the E7 cost record for this session will be read from the invoice once the day closes.

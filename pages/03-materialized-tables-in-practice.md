@@ -38,7 +38,18 @@ Right after submission, the `CREATE MATERIALIZED TABLE` statement showed as `RUN
 A few minutes later it showed as `COMPLETED`, reported as a bounded statement.
 Nothing in the statement list was running any more, yet the table kept updating.
 
-The continuous query lives under a different API, `GET /sql/v1/.../materialized-tables`, which reports its own phase, version, and a `stopped` flag:
+The console shows the same split.
+On the Statements tab, both materialized tables in the lab (the quick start's and a load-test copy) appear only as completed `CREATE MATERIALIZED TABLE` statements:
+
+![Flink Statements tab: both CREATE MATERIALIZED TABLE statements are Completed](assets/flink-statements-mt-completed.png)
+
+The Materialized tables tab, one click away, shows them running, each holding one CFU:
+
+![Flink Materialized tables tab: both tables Running at 1 CFU](assets/flink-mt-running.png)
+
+*Confluent Cloud console, 2026-11-15. The cluster ID column is hidden.*
+
+In the API, the continuous query lives under `GET /sql/v1/.../materialized-tables`, which reports its own phase, version, and a `stopped` flag:
 
 ```
 materialized tables (continuous queries; billed while RUNNING):
@@ -55,6 +66,10 @@ For the quick start's query, verbatim from the documentation, it returned two, b
 
 - `UPSERT_AND_PRIMARY_KEYS_DIFFERENT`: the declared primary key, `passenger_id`, is not the upsert key Flink derives from the query, so Flink adds a state-intensive correction step.
 - `HIGH_STATE_OPERATOR_WITHOUT_TTL`: the regular joins keep state forever because no time-to-live is set, which can degrade the statement and raise CFU use.
+
+The console puts both warnings at the top of the table's page:
+
+![Materialized table details: two CRITICAL warnings above the activity tabs](assets/flink-mt-warnings.png)
 
 At three passengers this costs nothing.
 At production scale both are worth fixing, and `CREATE OR ALTER MATERIALIZED TABLE` with a state TTL is the natural way to do it.

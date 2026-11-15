@@ -103,6 +103,27 @@ The shapes are indistinguishable at the median, so at 10,000 rows the per-call o
 Taking out one 190 ms round trip leaves about 500 ms per call that this run cannot split between the MCP layer and the Lightning engine.
 The slowest point lookup was the first call of the run.
 
+### What the queries scanned
+
+After the experiments, the console's Lightning Tables page showed how much data queries had scanned per table:
+
+![Lightning Tables page: bench_passenger_state shows 7.96 GB scanned](assets/lightning-tables-scanned-bytes.png)
+
+*Confluent Cloud console, 2026-11-15, after E1, E3, and E4.*
+
+My recorded runs sent about 5,830 queries to `bench_passenger_state`: 2,952 E1 polls, 300 E3 queries, and 2,578 E4 lookups.
+7.96 GB over 5,830 queries is about 1.4 MB per query, for a 10,000-row table, and most of those queries were single-row lookups by primary key.
+That is consistent with each query reading most or all of the table rather than going straight to one key.
+I cannot confirm it from these numbers alone: the page shows the table's size as 0 B, so there is nothing to compare against.
+
+It matters for cost.
+Lightning compute is billed in CCUs, and one CCU covers up to 80 GB scanned per hour, whichever meter is highest.
+At this size the scans were cheap: about 8 GB across an hour of experiments.
+But if scanned bytes grow with table size, the E4 rate of 40 lookups per second on a table ten times larger would scan on the order of 2 TB an hour.
+That is a hypothesis to measure at 100,000 rows, not a result.
+
+### What Lightning SQL allows
+
 Lightning's SQL is deliberately narrow: filters (`=`, `IN`, `LIKE`, `BETWEEN`, null checks), `ORDER BY`, and `LIMIT`, at most 200 rows over MCP, and no aggregates, `GROUP BY`, or joins.
 Joins and aggregation belong in Flink, upstream of the Lightning Table.
 
