@@ -105,7 +105,7 @@ An idle Basic cluster, compute pool, and Schema Registry cost nothing, which is 
 - What evolution and failure look like: changing a materialized table in place, stopping it under load, breaking a schema.
 - What each of those actually costs on the invoice.
 
-## Verdict
+## Would I use it?
 
 I think the Streamhouse idea holds up.
 You define the current state once, Flink keeps it up to date, applications and agents read it, and Iceberg keeps its history, with Kafka topics as the only interface between layers.
