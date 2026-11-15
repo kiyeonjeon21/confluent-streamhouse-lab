@@ -14,7 +14,7 @@ Flink SQL, mostly through materialized tables, turns those events into state tha
 Lightning Tables serve a topic's latest state for fast reads, to applications through an API and to agents through the Real-Time Context Engine, which is an MCP server.
 Tableflow writes the same topics out as Iceberg tables, so history does not need a second pipeline.
 
-Each layer reads topics that another layer wrote, so no component keeps its own copy of another component's logic.
+The layers exchange data through Kafka topics, so the derived-state definition stays in Flink instead of being reimplemented in a serving database or export pipeline.
 
 ## The scenario
 
@@ -52,7 +52,7 @@ The full Stream Lineage page showed nothing but its onboarding screen for this e
 
 ## How the lab is built
 
-The quick start is a 30-minute walkthrough in the console.
+The [quick start](https://github.com/confluentinc/quickstart-streamhouse) is a 30-minute walkthrough in the console.
 I wanted something I could tear down every evening and rebuild the next morning, where I could review every step before it cost money.
 
 Terraform owns the infrastructure: one environment, one cluster, one Flink compute pool, two service accounts with their keys, the Lightning Tables, and the Tableflow table.

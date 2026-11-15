@@ -75,7 +75,7 @@ The lab's live test now checks both: the Flink aggregate and the rows in the Ice
 ## What else showed up
 
 `flight_history` has no primary key, so Schema Registry holds only a value schema for it.
-The Tableflow overview says the key and the value both need schemas, but Tableflow materialized this topic without complaint.
+The [Tableflow overview](https://docs.confluent.io/cloud/current/topics/tableflow/index.html) says the key and the value both need schemas, but Tableflow materialized this topic without complaint.
 
 Terraform created the Tableflow topic in 5 seconds, and it reached `RUNNING` about a minute later.
 The first two snapshots were empty and the data arrived in the third, about 4.5 minutes after I enabled it.
@@ -87,8 +87,9 @@ With `$$offset`, you can reconcile Iceberg against Kafka row by row.
 With Confluent Managed Storage, loading a table returned temporary S3 credentials with an expiry time.
 The Spark example in the docs turns on S3 remote signing, which pyiceberg didn't need.
 
-Managed storage tables are reachable only through the Tableflow catalog with those vended credentials, and they don't sync to external catalogs such as AWS Glue.
-For Glue or Athena you need your own bucket.
+Managed storage tables are reachable through the Tableflow catalog with those vended credentials, and they don't sync to external catalogs such as AWS Glue.
+Engines that support the Iceberg REST Catalog and vended credentials can query them directly; Confluent documents Athena for Spark as one example.
+If you specifically need Glue catalog integration, you need your own bucket.
 
 ## Proving the hybrid read
 

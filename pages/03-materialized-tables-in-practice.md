@@ -74,9 +74,9 @@ The console shows both at the top of the table's page:
 
 [![Materialized table details: two CRITICAL warnings above the activity tabs](assets/flink-mt-warnings.png)](assets/flink-mt-warnings.png)
 
-With three passengers this costs nothing.
-At production scale I'd fix both, and `CREATE OR ALTER MATERIALIZED TABLE` with a state TTL is how you would do it.
-Be aware that an evolution throws away state and rebuilds it, and in upsert mode it can leave stale keys that the new query no longer emits.
+With three passengers the warnings had no visible effect, although the materialized table still held one billed CFU.
+At production scale I'd address them separately: redesign the query or key so the derived upsert key matches the declared primary key, and add a state TTL to bound the joins.
+Changing a materialized table can throw away state and rebuild it, and in upsert mode it can leave stale keys that the new query no longer emits.
 
 ## 3. The settings that decide freshness
 

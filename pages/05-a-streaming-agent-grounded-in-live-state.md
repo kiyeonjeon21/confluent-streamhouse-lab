@@ -94,7 +94,7 @@ The CLI does take the secret as a command-line argument, so it shows up briefly 
 
 ## Other clients
 
-Any MCP client can read the Lightning Tables; the agent inside Flink is just one of them.
+Any authorized MCP client can read the Lightning Tables; the agent inside Flink is just one of them.
 Claude Code pointed at the same endpoint with the same key would read the same passenger state; I didn't run that comparison in this lab.
 That shared state is what a Streamhouse is for: applications and agents work from one continuously maintained table instead of their own copies.
 

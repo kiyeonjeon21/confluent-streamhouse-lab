@@ -6,12 +6,12 @@ layout: landing
 
 # How real-time is a Streamhouse?
 
-In November 2026 I rebuilt Confluent's Streamhouse quick start, the River Air one, as Terraform and SQL files, tested each piece, and then measured it from my laptop in Seoul against AWS `us-east-1`.
+In November 2026 I rebuilt River Air, Confluent's Streamhouse quick start, as Terraform and SQL files, tested each piece, and then measured it from my laptop in Seoul against AWS `us-east-1`.
 
 Most of it worked the first time, including the streaming agent and a single Flink query that reads Iceberg history and live Kafka data together.
 Freshness was the surprise.
 Across 30 samples, a change took a median of 44 seconds to show up in derived state, and nearly all of that was waiting for Flink to commit its output, which it does about once a minute.
-After the commit, Lightning Tables took another 3 to 7 seconds, where the docs say 100 ms.
+After the commit, Lightning Tables took another 3 to 7 seconds, even though the documentation says a Lightning Table updates within 100 ms of new data arriving in its topic.
 
 If you're deciding whether to use a Streamhouse, part 7 sums it up.
 If you want to build one, start with part 1.

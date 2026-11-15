@@ -9,9 +9,10 @@ date: 2026-11-15
 ## The goal
 
 An AI agent that reads business state should not be able to change it.
-So the lab gives agents and MCP clients their own service account, which I call the *context reader*, with a Global API key and read access only.
+So I designed the lab around a dedicated service account, which I call the *context reader*, with a Global API key and read access only.
+On a Basic cluster, that last requirement turned out to be impossible.
 
-The Lightning Tables access-control page lists what each role allows:
+The [Lightning Tables access-control page](https://docs.confluent.io/cloud/current/lightning-tables/access-control.html) lists what each role allows:
 
 | Role | Scope | List topics | Query data | Get metadata |
 |---|---|---|---|---|
@@ -68,11 +69,11 @@ With it, `listTopics` worked on the first call.
 
 So the options are these:
 
-| Option | Privilege | Cost |
+| Option | Credential privilege | Cluster requirement or trade-off |
 |---|---|---|
-| Basic + `CloudClusterAdmin` for the reader | The MCP tools are read-only, but a leaked key could administer the cluster | First eCKU free |
+| Basic + `CloudClusterAdmin` for the reader | The MCP tools are read-only, but a leaked key could administer the cluster | The first eCKU is included |
 | Standard + `DeveloperRead` | Read-only, as documented | From $0.75 per eCKU-hour, about $18 a day |
-| Your own user's Global key, as in the quick start | Everything your user can do | Free, uses one of only two Global keys per user |
+| Your own user's Global key, as in the quick start | Everything your user can do | No cluster-price change; uses one of only two Global keys per user |
 
 For the lab I took the first option, on one disposable cluster, and wrote the Terraform so that a Standard cluster gets the documented read-only binding automatically.
 For anything real I would pay for Standard.

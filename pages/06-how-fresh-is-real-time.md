@@ -6,7 +6,7 @@ date: 2026-11-15
 
 *Part 6 of [Building a Streamhouse on Confluent Cloud](index.md).*
 
-According to the docs, Lightning Tables update within 100 ms of data arriving in a topic.
+According to the [Lightning Tables documentation](https://docs.confluent.io/cloud/current/lightning-tables/overview.html), a table updates within 100 ms of new data arriving in its topic.
 That number covers only the serving layer.
 An application cares about the whole path, from a source change through Flink to a read of the derived state, so that's what I measured.
 
@@ -100,8 +100,8 @@ Committed output became visible 11 to 62 seconds after the write.
 Flink commits its Kafka transaction about once a minute, and any reader that only sees committed data has to wait for it, Lightning included.
 
 After the commit, Lightning took another 3 to 7 seconds.
-The documented 100 ms may hold for plain topics that aren't written transactionally.
-For a Flink materialized table's output, measured from the moment the commit became visible, it took seconds.
+This experiment can't observe where Confluent marks data as having arrived for the documented 100 ms target.
+What it can show is that for this transactional Flink output, 3 to 7 seconds passed between broker commit visibility and Lightning query visibility.
 
 So E1's "fixed 17 seconds" is the fastest commit, about 11 seconds after the write, plus about 5 seconds in Lightning.
 The two runs also agree on the total: a median of 44.3 seconds here and 46.1 in the first measurement.
@@ -151,7 +151,7 @@ That fits each query reading most or all of the table instead of going straight 
 I can't confirm it from these numbers, because the page lists the table's size as 0 B and there's nothing to compare against.
 
 If it's true, it affects cost.
-Lightning compute is billed in CCUs, and one CCU covers up to 80 GB scanned per hour (you pay for whichever meter is highest).
+Lightning compute is billed in CCUs, and [one CCU covers up to 80 GB scanned per hour](https://docs.confluent.io/cloud/current/ai/real-time-context-engine/billing.html) (you pay for whichever meter is highest).
 At this size the scans were cheap, about 8 GB over an hour of experiments.
 If scanned bytes grow with table size, though, the E4 rate of 40 lookups per second on a table ten times larger would scan around 2 TB an hour.
 I haven't measured that; it's the next test, at 100,000 rows.
