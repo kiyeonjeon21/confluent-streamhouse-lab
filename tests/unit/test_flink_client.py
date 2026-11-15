@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from streamhouse_lab import sqlfiles, stages
-from streamhouse_lab.flink import FlinkClient, FlinkError, fold_changelog
+from streamhouse_lab.flink import FlinkClient, FlinkError, MaterializedTable, fold_changelog
 from tests.conftest import FAKE_SECRET
 
 BASE = "/sql/v1/organizations/00000000-0000-0000-0000-000000000000/environments/env-test01"
@@ -171,3 +171,20 @@ def test_apply_stage_retries_a_failed_statement(lab_config) -> None:
         applied = stages.apply_stage(client, stage, log=lambda _: None)
     assert applied[0].skipped is False
     assert applied[0].phase == "COMPLETED"
+
+
+def test_materialized_table_parses_status_warnings_and_options() -> None:
+    # Shape observed from GET /materialized-tables on 2026-11-15.
+    body = {
+        "name": "passenger_state",
+        "spec": {"stopped": False, "table_options": {"confluent.sink.buffer-flush.interval": "5 s"}},
+        "status": {
+            "phase": "RUNNING",
+            "version": 1,
+            "warnings": [{"severity": "CRITICAL", "reason": "HIGH_STATE_OPERATOR_WITHOUT_TTL"}],
+        },
+    }
+    table = MaterializedTable.from_api(body)
+    assert (table.name, table.phase, table.version, table.stopped) == ("passenger_state", "RUNNING", 1, False)
+    assert table.warnings == ["CRITICAL: HIGH_STATE_OPERATOR_WITHOUT_TTL"]
+    assert table.table_options["confluent.sink.buffer-flush.interval"] == "5 s"

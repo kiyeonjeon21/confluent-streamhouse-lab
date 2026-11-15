@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from streamhouse_lab import sqlfiles
 from streamhouse_lab.flink import FlinkClient, QueryResult, Statement
 
-# DDL and CREATE MATERIALIZED TABLE may report RUNNING (continuous query) or COMPLETED.
+# Bounded statements end COMPLETED. CREATE MATERIALIZED TABLE was seen RUNNING right after
+# submission and COMPLETED later (2026-11-15); its continuous query is tracked separately
+# under /materialized-tables, not in the statement list.
 APPLIED = frozenset({"COMPLETED", "RUNNING"})
 
 

@@ -32,11 +32,30 @@ scripts/verify-live capability_1
 
 Expected: five flights all `ON_TIME`; three passengers, `P-003` with no connecting flight; three hotels, `Airport Bayfront Inn` with 0 rooms.
 
-Actual: **not run yet**.
+Actual (2026-11-15, us-east-1, Basic cluster, `uv run lab check sources` and `scripts/verify-live capability_1`): **matches**.
+
+```
+flight_id  origin  destination  estimated_time           status
+RA210      SFO     SEA          2026-11-04 14:00:00.000  ON_TIME
+RA214      SFO     SEA          2026-11-04 15:30:00.000  ON_TIME
+RA226      SFO     SEA          2026-11-04 17:45:00.000  ON_TIME
+RA232      SFO     SEA          2026-11-05 07:15:00.000  ON_TIME
+RA417      ORD     SFO          2026-11-04 13:00:00.000  ON_TIME
+
+hotel                 available_rooms  nightly_rate
+Airport Bayfront Inn  0                189.00
+Harbor Point Hotel    12               214.00
+Runway View Suites    5                239.00
+
+passenger_id  inbound_flight_id  connecting_flight_id
+P-001         RA417              RA210
+P-002         RA417              RA214
+P-003         RA417              NULL
+```
 
 ## Issues, limitations, and lessons learned
 
-To record after the first run:
-
-- Which schema format Flink registers by default for these tables, and whether Lightning and Tableflow accept it unchanged.
-- Whether `INSERT ... VALUES` reports `COMPLETED` or passes through `RUNNING` first.
+- `uv run lab apply sources` took 23 s wall clock for six statements; every statement ended `COMPLETED` (`CREATE_TABLE` and `INSERT_INTO`, both reported as bounded).
+- One snapshot check took roughly 7 to 10 s end to end on this tiny dataset (`lab check sources` ran three in 22 s), so snapshot queries are a cheap but not instant verification tool.
+- The materialized table built on these sources reports `key.format` and `value.format` as `avro-registry`, the Flink default; the source tables were created with the same defaults. Lightning and Tableflow both accept Avro.
+- Snapshot results come back as strings (`"0"`, `"189.00"`), so tests compare string forms.

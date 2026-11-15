@@ -28,11 +28,16 @@ scripts/verify-live capability_2
 
 Expected: `P-001` to `SEA` with 60 connection minutes, `P-002` to `SEA` with 150, `P-003` ending at `SFO` with no connection minutes.
 
-Actual: **not run yet**.
+Actual (2026-11-15, `uv run lab check transform` and `scripts/verify-live capability_2`): **matches**.
+
+```
+passenger_id  inbound_flight_id  connecting_flight_id  final_destination  connection_minutes
+P-001         RA417              RA210                 SEA                60
+P-002         RA417              RA214                 SEA                150
+P-003         RA417              NULL                  SFO                NULL
+```
 
 ## Issues, limitations, and lessons learned
 
-To record after the first run:
-
-- Snapshot query start-up time against a tiny dataset, which bounds how cheap a "quick check" is.
-- Whether the regular (unbounded-state) join here would need a state TTL if it ran as a streaming query.
+- The bounded join took 9.7 s wall clock from submit to deleted statement, including results paging.
+- Running the same join continuously (capability 3) makes Flink warn that it is a high-state operator without a TTL. As a bounded query it carries no such cost, which is the clearest argument for keeping exploratory joins in snapshot mode.

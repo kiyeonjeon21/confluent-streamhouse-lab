@@ -34,16 +34,23 @@ The live test first replays `ra417-on-time`, so it is repeatable.
 Expected before the delay: `P-001 OK 60`, `P-002 OK 150`, `P-003 NO_CONNECTION NULL`.
 Expected after: `P-001 AT_RISK -50`, `P-002 AT_RISK 40`, `P-003 NO_CONNECTION NULL`, within about a minute.
 
-Actual: **not run yet**.
+Actual (2026-11-15, `scripts/verify-live capability_3`, which replays `ra417-on-time` then `ra417-delayed`): **matches** both before and after.
+The test passed in 140 s together with capabilities 1 and 2.
 
 ## Issues, limitations, and lessons learned
 
-Known before running:
+Observed on the first run:
 
-- The materialized table is a continuous statement and is billed for at least 1 CFU while it exists.
-- Its output reaches downstream readers at Flink's commit interval, which is the main term in end-to-end freshness (measured in Phase 4).
-
-To record after the first run:
-
-- Whether the `CREATE MATERIALIZED TABLE` statement settles as `RUNNING` or `COMPLETED`, and how its continuous query appears in the statement list.
-- Observed delay-to-visible time from the live test (coarse, includes snapshot start-up).
+- **The continuous query is not in the statement list.**
+  The `CREATE MATERIALIZED TABLE` statement was `RUNNING` right after submission and `COMPLETED` a few minutes later (`sql_kind = CREATE_MATERIALIZED_TABLE`, bounded).
+  The running query is visible only through `GET /sql/v1/.../materialized-tables`, which reports `phase: RUNNING`, a `version`, and `stopped`.
+  `uv run lab status` now shows both lists.
+- **Flink flags the official quick start query with two CRITICAL warnings:**
+  - `UPSERT_AND_PRIMARY_KEYS_DIFFERENT`: the declared primary key `passenger_id` is not the upsert key the query derives, so Flink adds a state-intensive correction operator.
+  - `HIGH_STATE_OPERATOR_WITHOUT_TTL`: the regular joins keep state forever without a TTL, which can degrade the statement and raise CFU use.
+  Both are harmless at three rows and worth an experiment at scale (Phase 4 E1 to E4), and an evolution with `CREATE OR ALTER` plus a state TTL is a natural capability-3 follow-up.
+- **Sink flush is 5 s by default.** The resolved table options include `confluent.sink.buffer-flush.enabled = true` and `confluent.sink.buffer-flush.interval = 5 s`, alongside `kafka.retention.time = 0 ms` on a compacted topic.
+  The flush interval is a floor on how fresh downstream readers (Lightning, Tableflow) can be.
+- The live test saw the delay reflected within 41 s of the event statement completing.
+  That is an upper bound that includes 10 s polling and snapshot-query start-up, not a freshness measurement.
+- Billing: the materialized table counts as a running workload for as long as it exists. Stop it (`stopped = true` via the API or Terraform) or tear down between sessions.

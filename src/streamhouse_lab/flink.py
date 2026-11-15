@@ -49,6 +49,29 @@ class Statement:
 
 
 @dataclass
+class MaterializedTable:
+    name: str
+    phase: str
+    version: int | None
+    stopped: bool
+    warnings: list[str] = field(default_factory=list)
+    table_options: dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, body: dict) -> MaterializedTable:
+        status = body.get("status") or {}
+        spec = body.get("spec") or {}
+        return cls(
+            name=body["name"],
+            phase=status.get("phase", "UNKNOWN"),
+            version=status.get("version"),
+            stopped=bool(spec.get("stopped")),
+            warnings=[f"{w.get('severity')}: {w.get('reason')}" for w in status.get("warnings") or []],
+            table_options=spec.get("table_options") or {},
+        )
+
+
+@dataclass
 class QueryResult:
     columns: list[str]
     rows: list[list]
@@ -169,6 +192,19 @@ class FlinkClient:
             found.extend(Statement.from_api(item) for item in body.get("data") or [])
             url = (body.get("metadata") or {}).get("next") or None
         return [s for s in found if s.name.startswith(prefix)]
+
+    def materialized_tables(self) -> list[MaterializedTable]:
+        """Materialized tables in the environment. Their continuous queries do not appear
+        in the statement list; the CREATE statement itself completes as a bounded job."""
+        found: list[MaterializedTable] = []
+        url: str | None = "/materialized-tables?page_size=100"
+        while url:
+            response = self._request("GET", url)
+            self._raise_for(response, "list materialized tables")
+            body = response.json()
+            found.extend(MaterializedTable.from_api(item) for item in body.get("data") or [])
+            url = (body.get("metadata") or {}).get("next") or None
+        return found
 
     def delete(self, name: str) -> None:
         response = self._request("DELETE", f"/statements/{name}")

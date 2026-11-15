@@ -24,9 +24,8 @@ def print_table(result: QueryResult) -> None:
     columns = result.columns or [f"col{i}" for i in range(len(result.rows[0]) if result.rows else 0)]
     cells = [[("NULL" if v is None else str(v)) for v in row] for row in result.rows]
     widths = [max([len(c), *(len(r[i]) for r in cells)]) for i, c in enumerate(columns)]
-    print("  ".join(c.ljust(w) for c, w in zip(columns, widths, strict=True)))
-    for row in cells:
-        print("  ".join(v.ljust(w) for v, w in zip(row, widths, strict=False)))
+    for line in [columns, *cells]:
+        print("  ".join(v.ljust(w) for v, w in zip(line, widths, strict=False)).rstrip())
     print(f"({len(cells)} rows)")
 
 
@@ -86,6 +85,12 @@ def cmd_status(_: argparse.Namespace) -> int:
         print("\nstatements:")
         for statement in sorted(client.list(), key=lambda s: s.name):
             print(f"  {statement.phase:10} {statement.name}")
+        print("\nmaterialized tables (continuous queries; billed while RUNNING):")
+        for table in client.materialized_tables():
+            stopped = " stopped" if table.stopped else ""
+            print(f"  {table.phase:10} {table.name} v{table.version}{stopped}")
+            for warning in table.warnings:
+                print(f"             {warning}")
     return 0
 
 
