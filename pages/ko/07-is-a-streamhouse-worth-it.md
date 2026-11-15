@@ -123,10 +123,10 @@ Confluent [billing FAQ](https://docs.confluent.io/cloud/current/billing/billing-
 Flink가 가장 큰 항목이었다.
 Materialized Table은 계속 실행되고, check와 snapshot query마다 CFU-minute가 더해진다.
 
-Basic cluster에도 요금이 나왔다.
-[가격 페이지](https://www.confluent.io/confluent-cloud/pricing/)에는 Basic의 첫 eCKU가 무료라고 되어 있지만, 청구서에는 두 cluster가 존재한 UTC 시간대 5개보다 많은 eCKU-hour 8개가 찍혔다.
-Cluster가 존재한 매시간 eCKU 하나, 그리고 벤치마크를 실행한 시간대마다 하나씩 더 청구됐다고 보면 숫자가 맞는다. 그런 시간대는 첫 세션에 2개, 두 번째 세션에 1개였다.
-Costs API는 일 단위 합계만 주므로 이는 추론이며, 무료 eCKU가 왜 적용되지 않았는지는 알 수 없다.
+부하가 걸린 Basic cluster에는 요금이 나왔다.
+[가격 페이지](https://www.confluent.io/confluent-cloud/pricing/)에는 Basic의 첫 eCKU가 무료라고 되어 있고, 유휴 cluster에는 실제로 그렇다. 같은 organization에 있는 기존 Basic cluster는 topic이 6개 있지만 트래픽이 없었고, 10월과 11월 모두 비용이 0이었다.
+Lab cluster에는 존재한 UTC 시간대 5개 동안 eCKU-hour 8개가 $0.135로 청구됐으므로, 그중 몇 시간에는 eCKU를 하나보다 많이 썼다.
+Costs API는 일 단위 합계만 주므로 어느 시간대에, 어떤 dimension(throughput, connection, request)이 eCKU를 늘렸는지는 알 수 없다.
 
 시간 단위 미터는 올림으로 계산된다.
 Confluent는 일부만 사용한 시간도 UTC 기준 한 시간 전체로 청구한다.
@@ -138,11 +138,11 @@ Tableflow에서 가장 잘 보인다. 첫 세션에서 topic은 2시간 20분 �
 
 - Materialized Table은 데이터 도착 여부와 관계없이 존재하는 동안 최소 CFU 하나를 사용한다. 시간당 $0.21, 하루 약 $5다.
 - Tableflow topic은 활성화된 동안 시간당 $0.10, 하루 $2.40이다.
-- Basic cluster는 topic과 partition이 없는 [zero consumption](https://docs.confluent.io/cloud/current/billing/dimensions/overview.html) 상태에서만 비용이 0이다. 위 해석이 맞다면 topic이 있는 유휴 Basic cluster는 시간당 $0.135, 하루 약 $3.24다.
+- 유휴 Basic cluster는 topic이 있어도 무료 첫 eCKU 안에 머문다. 부하로 늘어나는 eCKU는 하나당 시간당 $0.135다.
 - Lightning Tables는 항상 storage 비용이 들고 데이터가 도착하거나 query가 scan할 때 compute 비용이 든다.
 - 에이전트는 실행할 때마다 비용이 든다. 그날의 model 호출 비용은 모두 합쳐 $0.20였다.
 
-Statement가 없는 compute pool과 Schema Registry Essentials에는 비용이 없다.
+유휴 Basic cluster, statement가 없는 compute pool, Schema Registry Essentials에는 비용이 없다.
 비싼 것은 계속 실행되는 부분이며, 세션 사이에 철거한 덕분에 하루 비용을 $4 미만으로 유지했다.
 
 ## 더 확인하고 싶은 것
@@ -150,7 +150,7 @@ Statement가 없는 compute pool과 Schema Registry Essentials에는 비용이 �
 - Statement의 commit interval을 줄일 수 있는가? 가능하다면 CFU 사용량에는 어떤 영향이 있는가? 문서에는 설정이 없고 support 문의를 안내한다.
 - 리전 내부에서 측정할 때 100,000행 이상에서 scanned bytes와 latency는 어떻게 변하는가?
 - Materialized Table을 실행 중에 변경하거나 부하 중지하고 schema를 깨뜨렸을 때 evolution과 failure는 어떤 모습인가?
-- Basic cluster에 eCKU 요금이 청구된 이유는 무엇인가? 시간 단위 비용 데이터나 support 문의가 필요하다.
+- 어떤 부하가 Basic cluster를 eCKU 하나 넘게 키웠는가? 시간 단위 비용 데이터가 필요하다.
 
 ## 내가 사용하겠는가?
 

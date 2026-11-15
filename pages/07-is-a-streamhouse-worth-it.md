@@ -124,10 +124,10 @@ Three things are worth knowing before you budget.
 Flink was the largest line.
 The materialized tables run continuously, and every check and snapshot query adds CFU-minutes on top.
 
-The Basic cluster was billed.
-The [pricing page](https://www.confluent.io/confluent-cloud/pricing/) lists Basic's first eCKU as free, yet the invoice charged 8 eCKU-hours, more than the 5 UTC hours the two clusters existed in.
-The counts fit one billed eCKU for every hour a cluster existed, plus one more in each hour a benchmark ran: two hours in the first session and one in the second.
-The Costs API only returns daily totals, so that is an inference, and I don't know why the free eCKU didn't apply.
+The Basic cluster was billed under load.
+The [pricing page](https://www.confluent.io/confluent-cloud/pricing/) lists Basic's first eCKU as free, and that holds for an idle cluster: an older Basic cluster in the same organization, with six topics and no traffic, was billed nothing in October or November.
+The lab's clusters were billed 8 eCKU-hours at $0.135 across the 5 UTC hours they existed in, so in some of those hours they used more than one eCKU.
+The Costs API only returns daily totals, so I can't tell which hours, or which dimension (throughput, connections, or requests) pushed them past one.
 
 Hourly meters round up.
 Confluent bills any partial hour as a full UTC hour.
@@ -139,11 +139,11 @@ Left running, the same setup would cost this by the hour at those prices:
 
 - A materialized table uses at least one CFU for as long as it exists, whether or not data arrives: $0.21 an hour, about $5 a day.
 - A Tableflow topic costs $0.10 an hour while it's enabled, $2.40 a day.
-- A Basic cluster costs nothing only at [zero consumption](https://docs.confluent.io/cloud/current/billing/dimensions/overview.html), with no topics or partitions. If the pattern above holds, an idle Basic cluster with topics costs $0.135 an hour, about $3.24 a day.
+- An idle Basic cluster stays within its free first eCKU, even with topics. Each eCKU that load adds costs $0.135 an hour.
 - Lightning Tables always cost storage, and cost compute when data arrives or queries scan.
 - The agent costs per run. Its model calls for the whole day came to $0.20.
 
-A compute pool with no statements and Schema Registry Essentials cost nothing.
+An idle Basic cluster, a compute pool with no statements, and Schema Registry Essentials cost nothing.
 The expensive parts are the ones that run continuously, and tearing the lab down between sessions kept the day under $4.
 
 ## What I would still want to know
@@ -151,7 +151,7 @@ The expensive parts are the ones that run continuously, and tearing the lab down
 - Whether the commit interval can be shortened for a statement, and what that does to CFU use. The documentation describes no setting for it and points to support.
 - How scanned bytes and latency change at 100,000 rows and beyond, measured from inside the region.
 - What evolution and failure look like: changing a materialized table in place, stopping it under load, breaking a schema.
-- Why the Basic cluster was billed for eCKUs. Answering that needs hourly cost data or a question to support.
+- Which load pushed the Basic cluster past one eCKU. Answering that needs hourly cost data.
 
 ## Would I use it?
 

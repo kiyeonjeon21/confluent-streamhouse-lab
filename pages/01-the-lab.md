@@ -84,7 +84,7 @@ I changed two things from the quick start:
 
 | Quick start | This lab | Why |
 |---|---|---|
-| Standard cluster | Basic cluster | Every feature used here runs on Basic. The pricing page lists its first eCKU as free, though this lab was still billed for eCKUs ([part 7](07-is-a-streamhouse-worth-it.md#what-the-lab-cost)); Standard starts at $0.75 per eCKU-hour |
+| Standard cluster | Basic cluster | Every feature used here runs on Basic. Basic's first eCKU is free, which covers an idle cluster; under the lab's load it was billed for more ([part 7](07-is-a-streamhouse-worth-it.md#what-the-lab-cost)). Standard starts at $0.75 per eCKU-hour |
 | Global API key for your own user | Global API key for a dedicated service account, created by Terraform | Keeps the user's two Global key slots free and puts the key's lifecycle in code |
 
 The second change led to the most interesting problem of the project, which is the subject of [part 2](02-basic-clusters-and-read-only-agents.md).
@@ -112,7 +112,7 @@ All six capabilities matched the quick start, including the agent's output.
 
 ## What it costs
 
-A compute pool with no statements and Schema Registry Essentials are not billed, and a Basic cluster costs nothing only while it has no topics.
+A Basic cluster with no traffic, a compute pool with no statements, and Schema Registry Essentials are not billed.
 You pay for what runs:
 
 - A materialized table is a continuous statement and uses at least one Flink CFU for as long as it exists.

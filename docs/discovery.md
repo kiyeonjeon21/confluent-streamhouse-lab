@@ -31,7 +31,7 @@ The organization already holds one environment, `default`, in AWS `ap-northeast-
 
 The billing page showed $0.65 for April 2026, $0.39 for June 2026, and $0.00 for every other month through November 2026.
 Idle compute pools and Schema Registry therefore cost nothing; only running work is billed.
-A Basic cluster costs nothing only at zero consumption, which the [billing dimensions page](https://docs.confluent.io/cloud/current/billing/dimensions/overview.html) (read 2026-11-15) defines as no topics, no partitions, and no other usage; the lab's own clusters, which had topics, were billed eCKU-hours ([E7](experiments/2026-11-15-e7-cost.md)).
+`cluster_0` has six topics, so an idle Basic cluster with topics stays within the free first eCKU; the lab's clusters were billed only for eCKUs beyond it under load ([E7](experiments/2026-11-15-e7-cost.md)).
 
 The lab does not touch that environment.
 It creates its own environment, so `scripts/cleanup` can delete everything the lab made and nothing else.
@@ -93,7 +93,7 @@ What this lab does differently, and why:
 
 | Upstream | Here | Reason |
 |---|---|---|
-| Standard cluster | Basic by default | Every feature this lab uses runs on Basic. The pricing page lists the first eCKU as free, but the lab was still billed for eCKUs ([E7](experiments/2026-11-15-e7-cost.md)) |
+| Standard cluster | Basic by default | Every feature this lab uses runs on Basic. Basic's first eCKU is free, which covers an idle cluster; under load the lab was billed for more ([E7](experiments/2026-11-15-e7-cost.md)) |
 | Stream Governance Advanced | Essentials | Nothing here needs Advanced |
 | Global key created with the CLI | Global key created by Terraform | Provider 2.95.0 supports it; one tool owns the key's lifecycle |
 | Tableflow to customer S3 with Glue | Confluent Managed Storage | No AWS account or IAM needed; the trade-off is no external catalog sync |
@@ -137,7 +137,7 @@ The [billing FAQ](https://docs.confluent.io/cloud/current/billing/billing-faq.ht
 
 | Resource | Meter | List price | Billed in us-east-1 | When it is billed |
 |---|---|---|---|---|
-| Basic cluster | eCKU-hour | first eCKU free, then $0.14 | $0.135, with no free eCKU visible | the lab was billed in every hour a cluster existed; see E7 |
+| Basic cluster | eCKU-hour | first eCKU free, then $0.14 | $0.135 | eCKUs beyond the first, under load; see E7 |
 | Standard cluster (not used) | eCKU-hour | $0.75, minimum one | | every hour it exists |
 | Kafka data | GB in, out, stored | $0.05 per GB, $0.08 per GB-month | $0.05 per GB network | |
 | Flink | CFU-hour, metered per minute | regional; the June 2026 invoice billed $0.2562 in ap-northeast-2 | $0.21 | while any statement runs, at least 1 CFU-minute per statement |
