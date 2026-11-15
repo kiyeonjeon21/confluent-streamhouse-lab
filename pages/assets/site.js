@@ -19,6 +19,59 @@ if (articleBody && tocTarget) {
   if (list.children.length) tocTarget.append(list);
 }
 
+if (articleBody) {
+  const tables = [...articleBody.querySelectorAll("table")];
+
+  tables.forEach((table, index) => {
+    const block = document.createElement("div");
+    const region = document.createElement("div");
+    const hint = document.createElement("span");
+    const columnCount = table.querySelectorAll("thead th").length;
+    let heading = table.previousElementSibling;
+
+    while (heading && !heading.matches("h2, h3")) {
+      heading = heading.previousElementSibling;
+    }
+
+    block.className = "table-block";
+    if (columnCount >= 5) block.classList.add("table-block--wide");
+
+    region.className = "table-region";
+    region.setAttribute("role", "region");
+    region.setAttribute(
+      "aria-label",
+      `${heading?.textContent || `Table ${index + 1}`} data table`
+    );
+
+    hint.className = "table-block__hint";
+    hint.setAttribute("aria-hidden", "true");
+    hint.textContent = "Scroll horizontally to see all columns →";
+
+    table.before(block);
+    block.append(region, hint);
+    region.append(table);
+
+    const updateOverflow = () => {
+      const overflowing = region.scrollWidth > region.clientWidth + 2;
+      const atStart = region.scrollLeft <= 2;
+      const atEnd = region.scrollLeft + region.clientWidth >= region.scrollWidth - 2;
+
+      block.classList.toggle("is-overflowing", overflowing);
+      block.classList.toggle("can-scroll-left", overflowing && !atStart);
+      block.classList.toggle("can-scroll-right", overflowing && !atEnd);
+
+      if (overflowing) region.tabIndex = 0;
+      else region.removeAttribute("tabindex");
+    };
+
+    region.addEventListener("scroll", updateOverflow, { passive: true });
+    if ("ResizeObserver" in window) {
+      new ResizeObserver(updateOverflow).observe(region);
+    }
+    requestAnimationFrame(updateOverflow);
+  });
+}
+
 const mermaidBlocks = document.querySelectorAll(
   "div.language-mermaid, pre > code.language-mermaid"
 );
