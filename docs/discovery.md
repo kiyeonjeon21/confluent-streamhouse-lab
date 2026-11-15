@@ -125,8 +125,27 @@ Not in the documentation, or contrary to it; details in [docs/experiments](exper
 - The quick start's `passenger_state` query carries two CRITICAL Flink warnings.
 - Derived state reaches readers when Flink commits, about once a minute; Lightning then adds 3 to 7 s, not 100 ms.
   The commit interval is documented: [Delivery Guarantees and Latency](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html) (read 2026-11-15) says Flink commits transactions approximately every minute under the default exactly-once guarantee, describes no setting to change it, and suggests contacting support for lower latency.
-- On 10,000 rows, Lightning queries scanned about 1.4 MB each, roughly the whole table, even for key lookups (unconfirmed).
+- On 10,000 rows, Lightning queries scanned about 1.4 MB each, roughly the whole table, even for key lookups.
+  Confirmed on 2026-11-15 with the Metrics API at 100,000 rows: 8 to 11 MB per point lookup ([E5, E6, and scale](experiments/2026-11-15-e5-e6-and-scale.md)).
+- A plain Kafka write reaches its topic's Lightning Table in about 5 s, measured from inside `us-east-1` (5.07 to 5.80 s, 30 samples); the documentation says within 100 ms.
+- From inside the region a Lightning query takes about 34 ms; from Seoul about 690 ms.
+  One engine sustained about 160 point lookups per second before answering with JSON-RPC errors.
 - A Basic cluster cannot give a service account the read-only access the Real-Time Context Engine needs.
+- Deleting the agent's MCP connection makes new `AI_RUN_AGENT` runs fail with "Agent ... does not exist"; recreating the connection alone fixes it.
+- `CREATE OR ALTER MATERIALIZED TABLE` fails with "Changing distribution of materialized table is not supported" when it repeats the original `DISTRIBUTED BY` clause unchanged.
+  After an evolution, keys produced before it stop updating, because the new version starts with empty join state.
+- A record that cannot be deserialized fails the materialized table and suspends Tableflow, while Lightning skips it; `ALTER TABLE ... SET ('error-handling.mode' = 'log')` plus stop and resume did not recover the table, `CREATE OR ALTER` did.
+
+## Sources read for E5 and E6 (2026-11-15)
+
+- [Materialized tables](https://docs.confluent.io/cloud/current/flink/concepts/materialized-tables.html): stopping keeps the topic, resuming continues from the last committed offset, `CREATE OR ALTER` discards all processing state, and in upsert mode keys the new query no longer produces stay downstream as "zombie" data; the default start mode resumes the sources where the previous version stopped.
+- [ALTER MATERIALIZED TABLE](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-materialized-table.html): `SUSPEND` exists in SQL; resuming needs the REST API or Terraform's `stopped`.
+- [Flink REST API](https://docs.confluent.io/cloud/current/flink/operate-and-deploy/flink-rest-api.html): `PUT .../databases/{cluster}/materialized-tables/{name}` with `spec.stopped` and `metadata.resource_version`; a stale version returns 409.
+- [CREATE TABLE](https://docs.confluent.io/cloud/current/flink/reference/statements/create-table.html) and [dead letter queues](https://docs.confluent.io/cloud/current/flink/how-to-guides/configure-dlq.html): `error-handling.mode` is `fail` by default, `ignore` or `log` otherwise, for deserialization errors at the source.
+- [Configure Tableflow](https://docs.confluent.io/cloud/current/topics/tableflow/operate/configure-tableflow.html): error handling `suspend` (default), `skip`, or `log`.
+- [Monitor Lightning Tables](https://docs.confluent.io/cloud/current/lightning-tables/monitor.html): `io.confluent.rtce/compute_utilization/dp_scanned_bytes` and `ccu_minutes` (counters) and `storage_utilization/storage_bytes`, filtered by `resource.kafka.id`, grouped by `metric.topic`.
+- [Monitor streaming agents](https://docs.confluent.io/cloud/current/ai/streaming-agents/monitor-streaming-agents.html): a system log table, passed as the fourth argument of `AI_RUN_AGENT`, receives `MODEL_RESPONSE`, `TOOL_CALL_REQUEST`, `TOOL_RESPONSE`, and `ERROR` events with a fixed schema.
+- [Billing FAQ](https://docs.confluent.io/cloud/current/billing/billing-faq.html): partial hours are billed as full UTC hours; cost data can take up to 72 hours to reach the Costs API.
 
 ## Costs
 

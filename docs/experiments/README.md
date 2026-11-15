@@ -94,6 +94,7 @@ Built and unit tested on 2026-11-15 ([`tests/unit/test_bench.py`](../../tests/un
 First runs of E1, E3, and E4: [2026-11-15-first-runs.md](2026-11-15-first-runs.md).
 E2 and the hybrid read: [2026-11-15-e2-and-hybrid.md](2026-11-15-e2-and-hybrid.md).
 The cost part of E7: [2026-11-15-e7-cost.md](2026-11-15-e7-cost.md).
+E5, E6, and the 100,000-row runs from Seoul and from inside `us-east-1`: [2026-11-15-e5-e6-and-scale.md](2026-11-15-e5-e6-and-scale.md).
 
 | Piece | Where | What it guarantees |
 |---|---|---|
@@ -119,6 +120,14 @@ uv run lab bench hybrid --location seoul-laptop                   # needs Tablef
 uv run lab bench e3 --repeat 100 --passengers 10000 --location seoul-laptop
 uv run lab bench e4 --levels 1,2,4,8,16,32 --duration 30 --location seoul-laptop
 uv run lab bench summarize results/e3/<run-id>.jsonl --metric latency_ms
+uv run lab bench e1 --read source --samples 30 --jitter 10 --location <where>   # Lightning ingest of a plain write
+uv run lab bench e5 --offsets 0,5,15,30 --rounds 5 --location <where>           # agent; add --external-only for Claude Code alone
+uv run lab bench e6 --scenario stop-resume|evolve|unreadable|connection|observe --passengers 100000
+uv run lab metrics 2026-11-15T15:44:00Z 2026-11-15T15:47:00Z                     # read-only: scanned bytes and CCU-minutes per topic
+
+# a client without the Terraform state (for example in us-east-1) reads an owner-only copy of the outputs
+terraform -chdir=terraform output -json > outputs.json && chmod 600 outputs.json
+LAB_TERRAFORM_OUTPUTS=outputs.json uv run lab bench e3 --passengers 100000 --location us-east-1-ec2
 
 # offline: blog figures in pages/_includes/charts/, and the commit-clock fit
 uv run lab chart freshness-runs results/e1/<fixed-gap-run>.jsonl results/e1/<jittered-run>.jsonl
