@@ -67,3 +67,18 @@ def test_iceberg_catalog_requires_tableflow_key(lab_config: config.LabConfig) ->
 
     with pytest.raises(config.ConfigError, match="tableflow_topics"):
         iceberg.catalog(lab_config)
+
+
+def test_outputs_can_come_from_an_owner_only_copy(tmp_path, monkeypatch) -> None:
+    import json as _json
+
+    from streamhouse_lab import config as cfg
+
+    copy = tmp_path / "outputs.json"
+    copy.write_text(_json.dumps({"cloud_region": {"value": "us-east-1"}}))
+    copy.chmod(0o644)
+    monkeypatch.setenv(cfg.OUTPUTS_FILE_ENV, str(copy))
+    with pytest.raises(cfg.ConfigError, match="chmod 600"):
+        cfg.terraform_outputs()
+    copy.chmod(0o600)
+    assert cfg.terraform_outputs() == {"cloud_region": {"value": "us-east-1"}}

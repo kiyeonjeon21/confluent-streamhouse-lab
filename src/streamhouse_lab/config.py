@@ -8,6 +8,7 @@ nothing is copied into a second secrets file. Sensitive outputs are wrapped in
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -59,8 +60,20 @@ class LabConfig:
         return f"https://sql.{self.cloud_region}.{self.cloud}.confluent.cloud/query/v1"
 
 
+OUTPUTS_FILE_ENV = "LAB_TERRAFORM_OUTPUTS"
+
+
 def terraform_outputs(terraform_dir: Path = TERRAFORM_DIR) -> dict:
-    """Run `terraform output -json`. The JSON holds secrets, so it stays in memory."""
+    """Run `terraform output -json`. The JSON holds secrets, so it stays in memory.
+
+    On a client without the Terraform state (the in-region benchmark host), set
+    LAB_TERRAFORM_OUTPUTS to a copy of that JSON, readable only by its owner."""
+    copy = os.environ.get(OUTPUTS_FILE_ENV)
+    if copy:
+        path = Path(copy)
+        if path.stat().st_mode & 0o077:
+            raise ConfigError(f"{OUTPUTS_FILE_ENV} file holds secrets; chmod 600 it first")
+        return json.loads(path.read_text())
     try:
         proc = subprocess.run(
             ["terraform", f"-chdir={terraform_dir}", "output", "-json"],

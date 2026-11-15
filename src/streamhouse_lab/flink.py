@@ -206,6 +206,32 @@ class FlinkClient:
             url = (body.get("metadata") or {}).get("next") or None
         return found
 
+    def materialized_table(self, name: str) -> dict:
+        """The raw materialized table resource: spec, status, and metadata.resource_version."""
+        url = f"/databases/{self.config.kafka_cluster_id}/materialized-tables/{name}"
+        response = self._request("GET", url)
+        self._raise_for(response, f"get materialized table {name}")
+        return response.json()
+
+    def set_materialized_table_stopped(self, name: str, stopped: bool, *, attempts: int = 5) -> dict:
+        """Stop or resume a materialized table. Resuming restarts its query from the last
+        committed offset with its state; the PUT needs the current resource_version, and a
+        stale one returns 409, so read, change, and retry."""
+        url = f"/databases/{self.config.kafka_cluster_id}/materialized-tables/{name}"
+        for _ in range(attempts):
+            current = self.materialized_table(name)
+            body = {
+                "name": name,
+                "spec": {**(current.get("spec") or {}), "stopped": stopped},
+                "metadata": {"resource_version": (current.get("metadata") or {}).get("resource_version")},
+            }
+            response = self._request("PUT", url, json=body)
+            if response.status_code == 409:
+                continue
+            self._raise_for(response, f"{'stop' if stopped else 'resume'} materialized table {name}")
+            return response.json()
+        raise FlinkError(f"{name}: resource_version kept changing; gave up after {attempts} attempts")
+
     def delete(self, name: str) -> None:
         response = self._request("DELETE", f"/statements/{name}")
         if response.status_code != 404:

@@ -37,6 +37,15 @@ RANGE_MINUTES = (
 )
 
 
+RISKS = frozenset({"OK", "AT_RISK", "NO_CONNECTION"})
+
+
+def risk_sample_query(risk: str) -> str:
+    if risk not in RISKS:
+        raise ValueError(f"unknown risk {risk!r}")
+    return f"SELECT PASSENGER_ID FROM bench_passenger_state WHERE RISK = '{risk}' LIMIT 5"  # noqa: S608
+
+
 def passenger_lookup(passenger_id: str, columns: str = "*") -> str:
     if not PASSENGER_ID_RE.match(passenger_id):
         raise ValueError(f"not a generated passenger id: {passenger_id!r}")

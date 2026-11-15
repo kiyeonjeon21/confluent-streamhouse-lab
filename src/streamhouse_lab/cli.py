@@ -255,12 +255,16 @@ def cmd_bench(args: argparse.Namespace) -> int:
                 run_hybrid_experiment(cfg, recorder, resume=args.resume)
             elif args.action == "e5":
                 await run_agent_experiment(cfg, engine, recorder, args)
+            elif args.action == "e6":
+                await asyncio.to_thread(run_failure_experiment, cfg, engine, recorder, dataset, args.scenario)
 
         asyncio.run(run())
         recorder.event("net", phase="after", host=host, **measure.probe_network(host))
     print(f"raw results: {recorder.path.relative_to(config.REPO_ROOT)}")
     if args.action == "e5":
         print(summarize.agent_table(recorder.path))
+        return 0
+    if args.action == "e6":
         return 0
     metrics = {
         "e1": ["seen_by_ms"],
@@ -316,6 +320,158 @@ async def run_agent_experiment(cfg: config.LabConfig, engine: ContextEngine, rec
         name = sqlfiles.statement_name("check", "e5-log", str(int(time.time())))
         rows = agent_client.query(name, log_counts.statement).records()
         recorder.event("agent_log", rows=rows)
+
+
+def run_failure_experiment(
+    cfg: config.LabConfig, engine: ContextEngine, recorder, dataset, scenario: str
+) -> None:
+    """Wire E6 to the bench pipeline. Every scenario changes only bench_ objects,
+    except `connection`, which deletes and recreates the agent's MCP connection."""
+    import datetime as dt
+
+    from streamhouse_lab import bench, datagen, failure
+    from streamhouse_lab.kafka_io import BenchProducer
+
+    table = bench.STATE_TOPIC
+    probe = datagen.probe_flight(dataset)
+    producer = BenchProducer.connect(cfg)
+    counts_check = sqlfiles.parse(sqlfiles.stage("bench").path / "checks" / "bench-counts.sql")
+
+    def lightning(topic: str, sql: str, rows: int = 1) -> list[list]:
+        from streamhouse_lab.context import result_rows
+
+        _, calls = engine.run([("queryData", query_arguments(topic, sql, rows))])
+        return result_rows(calls[0].payload)
+
+    def first(topic: str, sql: str) -> str | None:
+        rows = lightning(topic, sql)
+        return str(rows[0][0]) if rows else None
+
+    def topic_status() -> dict:
+        out: dict = {}
+        scope = ["--environment", cfg.environment_id, "--cluster", cfg.kafka_cluster_id, "-o", "json"]
+        commands = {f"lightning:{t}": ["confluent", "rtce", "rtce-topic", "describe", t, *scope]
+                    for t in (bench.SOURCE_TOPIC, table) if t in cfg.lightning_topics}  # fmt: skip
+        if bench.SOURCE_TOPIC in cfg.tableflow_topics:
+            commands[f"tableflow:{bench.SOURCE_TOPIC}"] = [
+                "confluent", "tableflow", "topic", "describe", bench.SOURCE_TOPIC, *scope,
+            ]  # fmt: skip
+        for label, argv in commands.items():
+            proc = subprocess.run(argv, capture_output=True, text=True, check=False)
+            try:
+                body = json.loads(proc.stdout)
+            except ValueError:
+                body = {"raw": (proc.stdout or proc.stderr).strip()[:300]}
+            out[label] = {
+                k: v
+                for k, v in body.items()
+                if any(w in k.lower() for w in ("phase", "status", "error", "suspend"))
+            }
+        return out
+
+    with FlinkClient(cfg) as client:
+
+        def mt_status() -> dict:
+            body = client.materialized_table(table)
+            status, spec = body.get("status") or {}, body.get("spec") or {}
+            return {k: status.get(k) for k in ("phase", "detail", "version")} | {
+                "stopped": spec.get("stopped")
+            }
+
+        def counts() -> dict:
+            name = sqlfiles.statement_name("check", "e6", str(int(time.time() * 1000)))
+            return {
+                str(r["risk"]): int(r["passengers"])
+                for r in client.query(name, counts_check.statement).records()
+            }
+
+        def run_sql(sql: str) -> None:
+            name = sqlfiles.statement_name("e6", str(int(time.time() * 1000)))
+            client.submit(name, sql)
+            client.wait(name, until=frozenset({"COMPLETED", "RUNNING"}))
+
+        def write_marker(i: int) -> str:
+            update = datagen.marker_update(probe, i)
+            producer.send_one(update)
+            return update.value["estimated_time"].strftime(bench.TIMESTAMP_TEXT)
+
+        def write_new_passenger() -> str:
+            arrive = datagen.SERVICE_DAY + dt.timedelta(hours=9)
+            producer.send([
+                datagen.flight_record("B-IN99990", "ORD", datagen.HUB, arrive),
+                datagen.flight_record("B-OUT99990", datagen.HUB, "SEA", arrive + dt.timedelta(minutes=120)),
+                datagen.Record("bench_passenger_itineraries", {"passenger_id": "B-P999990"},
+                               {"inbound_flight_id": "B-IN99990", "connecting_flight_id": "B-OUT99990"}),
+            ])  # fmt: skip
+            return "B-P999990"
+
+        def write_unreadable() -> None:
+            record = datagen.flight_record("B-IN99998", "ORD", datagen.HUB, datagen.SERVICE_DAY)
+            ack = producer.send_unreadable(
+                record, b"not avro: written by a producer with the wrong serializer"
+            )
+            recorder.event("unreadable_written", partition=ack.partition, offset=ack.offset)
+
+        world = failure.World(
+            mt_status=mt_status,
+            set_stopped=lambda stopped: client.set_materialized_table_stopped(table, stopped),
+            probe_state=lambda: first(table, bench.probe_query()),
+            probe_source=lambda: first(bench.SOURCE_TOPIC, bench.source_probe_query(probe.key["flight_id"])),
+            write_marker=write_marker,
+            counts=counts,
+            lightning_sample=lambda risk: len(lightning(table, bench.risk_sample_query(risk), 5)),
+            run_sql=run_sql,
+            write_new_passenger=write_new_passenger,
+            passenger_visible=lambda pid: bool(lightning(table, bench.passenger_lookup(pid, "PASSENGER_ID"))),
+            write_unreadable=write_unreadable,
+            topic_status=topic_status,
+        )
+        if scenario == "stop-resume":
+            print(failure.stop_resume(world, recorder))
+        elif scenario == "evolve":
+            evolve_sql = sqlfiles.parse(config.SQL_DIR / "e6" / "evolve-bench-passenger-state.sql").statement
+            print(failure.evolve(world, recorder, evolve_sql))
+        elif scenario == "unreadable":
+            print(failure.unreadable_record(world, recorder))
+        elif scenario == "observe":
+            print(failure.observe(world, recorder, "observe", topics=topic_status(),
+                                  probe_source=world.probe_source(), counts=counts()))  # fmt: skip
+        elif scenario == "connection":
+            print(connection_scenario(cfg, client, recorder))
+
+
+def connection_scenario(cfg: config.LabConfig, client: FlinkClient, recorder, delay: float = 5.0) -> dict:
+    """Delete the agent's MCP connection while a run is in flight, then recreate it and run again."""
+    import concurrent.futures
+
+    check = sqlfiles.parse(sqlfiles.stage("agent").path / "checks" / "rebooking-offers.sql")
+
+    def run_agent(label: str) -> dict:
+        name = sqlfiles.statement_name("check", "e6", label, str(int(time.time() * 1000)))
+        started = time.perf_counter()
+        try:
+            rows = client.query(name, check.statement).records()
+            outcome = {"rows": [{k: str(v)[:300] for k, v in r.items()} for r in rows]}
+        except Exception as exc:  # the failure is the observation
+            outcome = {"error": str(exc)[:500]}
+        return {"elapsed_s": round(time.perf_counter() - started, 1), **outcome}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(run_agent, "during-delete")
+        time.sleep(delay)
+        deleted = agent_connection.delete(cfg)
+        recorder.event("step", step="connection_deleted", deleted=deleted, after_s=delay)
+        during = future.result()
+    recorder.event("step", step="run_during_delete", **during)
+    without = run_agent("without-connection")
+    recorder.event("step", step="run_without_connection", **without)
+    agent_connection.create(cfg)
+    recorder.event("step", step="connection_recreated")
+    after = run_agent("after-recreate")
+    recorder.event("step", step="run_after_recreate", **after)
+    result = {"during": during, "without": without, "after": after}
+    recorder.event("result", scenario="connection", **result)
+    return result
 
 
 def run_hybrid_experiment(cfg: config.LabConfig, recorder, *, resume: bool = False) -> None:
@@ -375,6 +531,17 @@ def cmd_chart(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_metrics(args: argparse.Namespace) -> int:
+    """Read-only: Lightning scanned bytes and CCU-minutes per topic for an interval (UTC, ISO 8601)."""
+    from streamhouse_lab import metrics
+
+    usage = metrics.usage(config.load(), args.start, args.end)
+    print(f"{'topic':32} {'scanned bytes':>16} {'CCU-minutes':>12}")
+    for topic, values in sorted(usage.items()):
+        print(f"{topic:32} {values.get('scanned_bytes', 0):>16,.0f} {values.get('ccu_minutes', 0):>12,.2f}")
+    return 0
+
+
 def cmd_agent_connection(args: argparse.Namespace) -> int:
     cfg = config.load()
     if args.action == "create":
@@ -431,7 +598,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_iceberg)
 
     p = sub.add_parser("bench", help="Phase 4: generate data, run experiments, summarize results")
-    p.add_argument("action", choices=["gen", "e1", "e2", "e3", "e4", "e5", "hybrid", "summarize"])
+    p.add_argument("action", choices=["gen", "e1", "e2", "e3", "e4", "e5", "e6", "hybrid", "summarize"])
+    p.add_argument(
+        "--scenario",
+        choices=["stop-resume", "evolve", "unreadable", "connection", "observe"],
+        help="e6: which failure or change to run",
+    )
     p.add_argument("file", nargs="?", help="results file for summarize")
     p.add_argument("--passengers", type=int, default=10_000)
     p.add_argument("--seed", type=int, default=7)
@@ -472,6 +644,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("files", nargs="+", help="freshness-runs: fixed-gap E1 file, then jittered E1 file")
     p.add_argument("--out", default=str(config.REPO_ROOT / "pages" / "_includes" / "charts"))
     p.set_defaults(func=cmd_chart)
+
+    p = sub.add_parser("metrics", help="Lightning scanned bytes and CCU-minutes per topic (read-only)")
+    p.add_argument("start", help="UTC start, e.g. 2026-11-15T15:00:00Z")
+    p.add_argument("end", help="UTC end")
+    p.set_defaults(func=cmd_metrics)
 
     p = sub.add_parser("agent-connection", help="manage the agent's MCP connection to the context engine")
     p.add_argument("action", choices=["create", "show", "delete"])

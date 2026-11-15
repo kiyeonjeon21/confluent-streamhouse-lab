@@ -149,6 +149,27 @@ class BenchProducer:
     def send_one(self, record: Record) -> Ack:
         return self.send([record])[0]
 
+    def send_unreadable(self, record: Record, value: bytes) -> Ack:
+        """Produce a record with a valid Avro key and a value that no Avro reader can decode,
+        as a producer with the wrong serializer would (experiment E6)."""
+        key, _ = self._serialize(record)
+        acks: list[Ack] = []
+        failures: list[str] = []
+
+        def on_delivery(err: KafkaError | None, msg: Message) -> None:
+            if err is not None:
+                failures.append(str(err))
+            else:
+                acks.append(
+                    Ack(msg.topic(), msg.partition(), msg.offset(), self._clock(), msg.timestamp()[1])
+                )
+
+        self._producer.produce(record.topic, key=key, value=value, on_delivery=on_delivery)
+        self._producer.flush(30)
+        if failures or not acks:
+            raise ProduceError(f"unreadable record not acknowledged: {failures[:1]}")
+        return acks[0]
+
 
 @dataclass
 class Received:
