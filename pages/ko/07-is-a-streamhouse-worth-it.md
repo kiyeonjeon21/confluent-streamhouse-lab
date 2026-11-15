@@ -10,11 +10,11 @@ reading_time: 8
 sample: 6개 기능의 실험 증거
 takeaways:
   - label: 관측 결과
-    text: 승객 상태를 정의한 하나의 Flink 로직이 Lightning 읽기와 에이전트에 모두 사용됐고 Tableflow는 별도 내보내기 파이프라인 없이 히스토리를 보존했다.
+    text: 승객 상태를 정의한 하나의 Flink 로직이 Lightning 읽기와 에이전트에 모두 사용됐고 Tableflow는 별도 export pipeline 없이 히스토리를 보존했다.
   - label: 해석
-    text: 기본 exactly-once delivery로 시험한 이 구성은 수십 초를 허용하는 운영 의사결정에 적합하다. 1초 미만의 read-your-write나 서빙 계층의 분석에는 맞지 않는다.
+    text: 기본 exactly-once delivery로 시험한 이 구성은 수십 초를 허용하는 운영 의사결정에 적합하다. Sub-second read-your-write나 serving layer의 분석에는 맞지 않는다.
   - label: 한계
-    text: 프로덕션 도입 전에는 현실적인 table 크기에서 스캔 비용을 측정하고 에이전트에 최소 권한을 줄 수 있는 클러스터를 사용해야 한다.
+    text: 프로덕션 도입 전에는 현실적인 table 크기에서 scan cost를 측정하고 에이전트에 최소 권한을 줄 수 있는 클러스터를 사용해야 한다.
 ---
 
 앞의 여섯 챕터에서는 각 구성 요소의 동작을 살펴봤다.
@@ -32,7 +32,7 @@ Streamhouse는 event stream에서 현재 상태를 한 번, 지속적으로 계�
 
 ## 일반적인 대안
 
-| 접근 방식 | 현재 상태 유지 방법 | 최신성 | 히스토리 | 운영 대상 |
+| 접근 방식 | 현재 상태 유지 방법 | Freshness | 히스토리 | 운영 대상 |
 |---|---|---|---|---|
 | Warehouse 또는 lakehouse batch | 적재된 데이터에 schedule job 실행 | 수분–수시간 | 매우 좋음 | Loader, scheduler, warehouse |
 | 직접 구축한 streaming | Stream processor가 serving database 또는 cache에 기록 | 구축한 만큼 빠름 | Lake로 보내는 별도 pipeline | 모든 component와 정합성 유지 코드 |
@@ -49,7 +49,7 @@ Confluent quick start는 Streamhouse를 네 가지 solution으로 설명한다. 
 ### 1. 일관된 상태를 한 번만 유지한다
 
 이 약속은 성립했다.
-승객 상태를 정의한 하나의 Flink 로직을 Lightning과 에이전트가 함께 읽었고, bounded join도 같은 연결 시간을 계산했다. 지연 이벤트를 넣자 정의를 바꾸지 않았는데도 승객 두 명이 `AT_RISK`로 바뀌었다([Chapter 3](03-materialized-tables-in-practice.md)). Tableflow는 별도 내보내기 파이프라인 없이 히스토리를 보존했다.
+승객 상태를 정의한 하나의 Flink 로직을 Lightning과 에이전트가 함께 읽었고, bounded join도 같은 연결 시간을 계산했다. 지연 이벤트를 넣자 정의를 바꾸지 않았는데도 승객 두 명이 `AT_RISK`로 바뀌었다([Chapter 3](03-materialized-tables-in-practice.md)). Tableflow는 별도 export pipeline 없이 히스토리를 보존했다.
 
 단, 모든 reader가 같은 상태에 합의하는 시점은 약 1분 늦었다.
 Flink의 기본 exactly-once output은 [Confluent 문서](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html)에 따르면 약 1분마다 커밋되고 Lightning은 커밋 뒤 3–7초가 더 걸렸다([Chapter 6](06-how-fresh-is-real-time.md)).
@@ -57,7 +57,7 @@ Flink의 기본 exactly-once output은 [Confluent 문서](https://docs.confluent
 ### 2. 최근 5초와 지난 5년을 함께 판단한다
 
 “초”를 수십 초로 해석하면 동작한다.
-Source write에서 파생 상태를 Lightning으로 읽기까지 18–68초, 평균 약 42초가 걸렸다. 운영 팀에는 실시간일 수 있지만 checkout page에는 느리다.
+Source write에서 derived state를 Lightning으로 읽기까지 18–68초, 평균 약 42초가 걸렸다. 운영 팀에는 실시간일 수 있지만 checkout page에는 느리다.
 
 History 경로는 잘 동작했다.
 Tableflow는 약 4분 만에 Iceberg에 데이터를 기록했고 pyiceberg로 직접 읽을 수 있었다. Kafka copy를 삭제한 뒤에도 Flink snapshot query 하나가 Iceberg의 과거 행과 Kafka에만 있는 새 행을 함께 반환했다([Chapter 4](04-proving-tableflow-wrote-iceberg.md)).
@@ -84,14 +84,14 @@ Basic cluster에서는 읽기 전용 role을 쓸 수 없어 agent credential이 
 
 실험 결과를 기준으로 다음 상황에 적합하다.
 
-- 비즈니스가 이미 Kafka에서 실행되고 여러 consumer 사이의 파생 상태를 일관되게 유지하는 일이 어렵다.
+- 비즈니스가 이미 Kafka에서 실행되고 여러 consumer 사이의 derived state를 일관되게 유지하는 일이 어렵다.
 - 현재 상태가 필요하지만 수십 초 지연을 허용할 수 있다. 운영 dashboard, 재예약 같은 예외 처리, alerting, 비즈니스 상태에 따라 행동하는 agent가 예다.
 - AI agent에 live, governed context가 필요하고 retrieval stack을 직접 만들고 싶지 않다.
 - Serving database, cache, export pipeline을 직접 운영하기보다 managed service를 구성하는 편을 선호한다.
 
 ## 아직 적합하지 않은 영역
 
-- 시험한 기본 exactly-once delivery에서 1초 미만 최신성 또는 read-your-write가 필요하다. Flink는 약 1분마다 commit하고 Lightning이 몇 초를 더하므로 방금 변경한 파생 상태를 바로 볼 수 없다. Confluent는 이 지연을 줄이는 작업을 하고 있다고 설명한다.
+- 시험한 기본 exactly-once delivery에서 sub-second freshness 또는 read-your-write가 필요하다. Flink는 약 1분마다 commit하고 Lightning이 몇 초를 더하므로 방금 변경한 derived state를 바로 볼 수 없다. Confluent는 이 latency를 줄이는 작업을 하고 있다고 설명한다.
 - Serving layer에서 analytical query가 필요하다. Lightning은 MCP query당 최대 200행을 반환하고 aggregate, `GROUP BY`, join을 거부하므로 Flink 또는 Iceberg를 읽는 engine이 맡아야 한다.
 - 측정 전의 대규모 table 고빈도 lookup. 10,000행에서 query당 평균 약 1.4 MB를 scan해 table 대부분을 읽는 것처럼 보였다. Lightning compute는 scan byte도 과금 기준이므로 table size와 함께 증가한다면 비싸질 수 있다.
 - 가장 저렴한 cluster에서 최소 권한이 필요하다. Agent가 read-only credential을 가져야 한다면 Standard cluster 비용을 반영해야 한다.
@@ -111,7 +111,7 @@ Basic cluster에서는 읽기 전용 role을 쓸 수 없어 agent credential이 
 ## 더 확인하고 싶은 것
 
 - Statement의 commit interval을 줄일 수 있는가? 가능하다면 CFU 사용량에는 어떤 영향이 있는가? 문서에는 설정이 없고 support 문의를 안내한다.
-- 리전 내부에서 측정할 때 100,000행 이상에서 scan byte와 지연 시간은 어떻게 변하는가?
+- 리전 내부에서 측정할 때 100,000행 이상에서 scanned bytes와 latency는 어떻게 변하는가?
 - Materialized Table을 실행 중에 변경하거나 부하 중지하고 schema를 깨뜨렸을 때 evolution과 failure는 어떤 모습인가?
 - 이 모든 항목은 실제 invoice에서 얼마인가?
 

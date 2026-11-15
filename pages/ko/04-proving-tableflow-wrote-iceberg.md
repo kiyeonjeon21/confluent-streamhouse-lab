@@ -14,12 +14,12 @@ takeaways:
   - label: 해석
     text: Kafka 레코드를 삭제한 뒤 한 Flink snapshot query가 Iceberg에만 있는 과거 행과 Kafka에만 있는 새 행을 함께 반환했다.
   - label: 한계
-    text: 여섯 행은 읽기 경로의 정확성을 보여 주지만 분석 규모에서의 compaction, retention, 쿼리 동작까지 설명하지는 못한다.
+    text: 여섯 행은 read path의 정확성을 보여 주지만 분석 규모에서의 compaction, retention, query behavior까지 설명하지는 못한다.
 ---
 
 ## 당연해 보이는 검증이 아무것도 증명하지 못하는 이유
 
-Tableflow는 Kafka topic을 Iceberg table로 구체화한다.
+Tableflow는 Kafka topic을 Iceberg table로 materialize한다.
 Confluent Cloud에서 Tableflow를 활성화한 topic에 Flink snapshot query를 실행하면 오래된 데이터는 Iceberg snapshot에서, 최신 레코드는 Kafka에서 읽는다. 따라서 한 쿼리가 과거와 현재를 함께 다룬다.
 
 Quick start는 `flight_history`에 snapshot query를 실행해 이를 확인한다.
@@ -85,11 +85,11 @@ Kafka offset 0부터 5까지 여섯 행이 있었고 원본과 정확히 일치�
 ## 함께 확인한 동작
 
 `flight_history`에는 primary key가 없어 Schema Registry에도 value schema만 있다.
-[Tableflow overview](https://docs.confluent.io/cloud/current/topics/tableflow/index.html)는 key와 value에 모두 schema가 필요하다고 설명하지만 Tableflow는 이 topic을 문제없이 구체화했다.
+[Tableflow overview](https://docs.confluent.io/cloud/current/topics/tableflow/index.html)는 key와 value에 모두 schema가 필요하다고 설명하지만 Tableflow는 이 topic을 문제없이 materialize했다.
 
 Terraform은 5초 만에 Tableflow topic을 만들었고 약 1분 뒤 `RUNNING` 상태가 됐다.
 첫 snapshot 두 개는 비어 있었고 활성화한 지 약 4.5분 뒤 세 번째 snapshot에 데이터가 들어왔다.
-Managed storage 문서는 최초 구체화에 약 10분이 걸릴 수 있다고 설명한다.
+Managed storage 문서는 최초 materialization에 약 10분이 걸릴 수 있다고 설명한다.
 
 Iceberg schema에는 `$$topic`, `$$partition`, `$$offset`, `$$timestamp`, `$$headers`, `$$raw-key`, `$$raw-value` 같은 metadata column이 추가된다.
 `$$offset`을 사용하면 Iceberg와 Kafka를 행 단위로 대조할 수 있다.
@@ -114,7 +114,7 @@ Kafka `DeleteRecords` API로 topic의 start offset을 기존 레코드 뒤로 �
 
 | 단계 | Kafka | Iceberg | Flink snapshot query |
 |---|---|---|---|
-| 과거 batch 구체화 | OLD-1..4 | OLD-1..4 | OLD-1..4 |
+| 과거 batch materialization | OLD-1..4 | OLD-1..4 | OLD-1..4 |
 | Kafka record 삭제 | 없음 | OLD-1..4 | OLD-1..4 |
 | 새 batch 기록 | NEW-1, NEW-2 | OLD-1..4 | OLD-1..4, NEW-1, NEW-2 |
 

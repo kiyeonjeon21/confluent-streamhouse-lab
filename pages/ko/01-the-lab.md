@@ -12,7 +12,7 @@ takeaways:
   - label: 관측 결과
     text: Kafka 소스, Flink 변환, Materialized Table, Lightning 읽기, Iceberg 히스토리, 재예약 에이전트까지 여섯 기능이 모두 통과했다.
   - label: 해석
-    text: 각 계층은 Kafka 토픽으로 데이터를 교환하므로 파생 상태의 로직은 Flink에 한 번만 작성하면 된다.
+    text: 각 계층은 Kafka 토픽으로 데이터를 교환하므로 derived state를 계산하는 로직은 Flink에 한 번만 작성하면 된다.
   - label: 한계
     text: 작고 폐기 가능한 실험 환경이므로 구성 요소의 연동은 보여 주지만 프로덕션 규모의 신뢰성, 비용, 운영 방식까지 설명하지는 못한다.
 ---
@@ -25,7 +25,7 @@ Flink SQL은 주로 Materialized Table을 이용해 이벤트를 지속적으로
 Lightning Tables는 토픽의 최신 상태를 빠르게 읽을 수 있게 한다. 애플리케이션은 API로, 에이전트는 MCP 서버인 Real-Time Context Engine으로 접근한다.
 Tableflow는 같은 토픽을 Iceberg 테이블로 기록하므로 히스토리를 위한 별도 파이프라인이 필요 없다.
 
-각 계층은 Kafka 토픽으로 데이터를 교환한다. 따라서 파생 상태의 정의를 서빙 데이터베이스나 내보내기 파이프라인에서 다시 구현하지 않고 Flink에 유지할 수 있다.
+각 계층은 Kafka 토픽으로 데이터를 교환한다. 따라서 derived state의 정의를 serving database나 export pipeline에서 다시 구현하지 않고 Flink에 유지할 수 있다.
 
 ## River Air 시나리오
 

@@ -11,8 +11,8 @@ permalink: /ko/
   <div class="home-hero__copy">
     <p class="eyebrow">7개 챕터로 구성한 재현 가능한 실험</p>
     <h1>Streamhouse의 “실시간”은 얼마나 최신인가?</h1>
-    <p class="home-hero__dek">Confluent의 River Air Streamhouse를 Terraform, 버전으로 관리하는 Flink SQL, 자동화 테스트로 다시 구축했다. 이어서 Kafka 쓰기부터 파생 상태, Iceberg 히스토리, AI 에이전트까지 이어지는 경로의 지연 시간을 측정했다.</p>
-    <p class="home-hero__summary">아키텍처는 동작했다. 예상 밖이었던 것은 지연 시간이었다. 이 구성에서 파생 상태가 Lightning Tables에 나타나기까지 <strong>p50 기준 44.3초</strong>가 걸렸고, 대부분은 약 1분 간격의 Flink exactly-once 커밋을 기다리는 시간이었다.</p>
+    <p class="home-hero__dek">Confluent의 River Air Streamhouse를 Terraform, Git으로 관리하는 Flink SQL, 자동화 테스트로 다시 구축했다. 이어서 Kafka 쓰기부터 derived state, Iceberg history, AI agent까지 이어지는 경로의 latency를 측정했다.</p>
+    <p class="home-hero__summary">아키텍처는 동작했다. 예상 밖이었던 것은 latency였다. 이 구성에서 derived state가 Lightning Tables에서 조회 가능해지기까지 <strong>p50 기준 44.3초</strong>가 걸렸고, 대부분은 약 1분 간격의 Flink exactly-once commit을 기다리는 시간이었다.</p>
     <div class="home-hero__actions">
       <a class="button button--primary" href="{{ '/ko/01-the-lab.html' | relative_url }}">실험실부터 읽기</a>
       <a class="button" href="{{ '/ko/06-how-fresh-is-real-time.html' | relative_url }}">벤치마크 보기</a>
@@ -33,9 +33,9 @@ permalink: /ko/
 <section class="home-section home-section--metrics" aria-labelledby="ko-measured-title">
   <div class="section-heading"><div><p class="section-label">측정 결과</p><h2 id="ko-measured-title">핵심 수치</h2></div><p>아래 수치 중 앞의 세 개는 Chapter 6, Iceberg 수치는 Chapter 4의 결과다. 모두 서울에서 <code>us-east-1</code>의 Basic 클러스터를 측정한 값이다.</p></div>
   <div class="metric-grid">
-    <article class="metric-card metric-card--primary"><span class="metric-card__value">44.3<span>초</span></span><strong>종단 간 최신성, p50</strong><p>브로커가 쓰기를 승인한 시점부터 파생 행이 Lightning Tables에 보일 때까지, 30개 샘플.</p></article>
-    <article class="metric-card"><span class="metric-card__value">3–7<span>초</span></span><strong>커밋 이후 Lightning 가시성</strong><p>브로커 커밋 가시성과 첫 성공 쿼리 사이에서 관측한 범위.</p></article>
-    <article class="metric-card"><span class="metric-card__value">40.6<span>req/s</span></span><strong>동시 클라이언트 32개</strong><p>30초간 MCP 단건 조회를 실행했으며 오류와 요청 제한은 없었다.</p></article>
+    <article class="metric-card metric-card--primary"><span class="metric-card__value">44.3<span>초</span></span><strong>End-to-end freshness, p50</strong><p>Broker acknowledgement부터 derived row가 Lightning Tables에서 조회 가능해질 때까지 측정한 30개 샘플.</p></article>
+    <article class="metric-card"><span class="metric-card__value">3–7<span>초</span></span><strong>Commit-to-Lightning visibility</strong><p>Broker commit 이후 첫 쿼리가 변경을 반환하기까지 관측한 범위.</p></article>
+    <article class="metric-card"><span class="metric-card__value">40.6<span>req/s</span></span><strong>동시 클라이언트 32개</strong><p>30초간 MCP point lookup을 실행했으며 오류나 rate limit은 없었다.</p></article>
     <article class="metric-card"><span class="metric-card__value">4.5<span>분</span></span><strong>첫 Iceberg 데이터</strong><p>처리량이 낮은 토픽의 세 번째 스냅샷에 소스 행 6개가 모두 포함됐다.</p></article>
   </div>
 </section>
@@ -45,4 +45,4 @@ permalink: /ko/
   {% include chapter-grid.html %}
 </section>
 
-<section class="method-note" aria-labelledby="ko-method-title"><div><p class="section-label">방법</p><h2 id="ko-method-title">재현하고 검증할 수 있는 실험</h2></div><p>Terraform, 버전으로 관리하는 SQL, 약 140개의 자동화 테스트, 별도 벤치마크 테이블을 사용했다. 측정 챕터에는 샘플 수와 실험이 증명하지 못한 범위를 함께 기록했다.</p><a href="{{ site.repository_url }}">저장소 보기 <span aria-hidden="true">→</span></a></section>
+<section class="method-note" aria-labelledby="ko-method-title"><div><p class="section-label">방법</p><h2 id="ko-method-title">재현하고 검증할 수 있는 실험</h2></div><p>Terraform, Git으로 관리하는 SQL, 약 140개의 자동화 테스트, 별도 benchmark table을 사용했다. 측정 챕터에는 샘플 수와 실험이 증명하지 못한 범위를 함께 기록했다.</p><a href="{{ site.repository_url }}">저장소 보기 <span aria-hidden="true">→</span></a></section>

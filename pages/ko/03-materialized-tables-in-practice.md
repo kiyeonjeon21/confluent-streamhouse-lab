@@ -1,6 +1,6 @@
 ---
 title: Materialized Table 실전 운용
-description: statement 목록에 보이지 않는 continuous query, 공식 예제의 CRITICAL 경고 두 개, 데이터 최신성을 결정하는 설정.
+description: statement 목록에 보이지 않는 continuous query, 공식 예제의 CRITICAL 경고 두 개, freshness를 결정하는 설정.
 date: 2026-11-15
 part: 3
 lang: ko
@@ -12,7 +12,7 @@ takeaways:
   - label: 관측 결과
     text: 공식 River Air 쿼리에는 key mismatch와 unbounded join state라는 CRITICAL 경고 두 개가 표시됐다.
   - label: 해석
-    text: CREATE statement가 COMPLETED로 표시돼도 과금되는 continuous query는 계속 실행된다. 5초 sink flush도 5초 이내의 최신성을 뜻하지 않았다.
+    text: CREATE statement가 COMPLETED로 표시돼도 과금되는 continuous query는 계속 실행된다. 5초 sink flush도 5초 이내의 freshness를 뜻하지 않았다.
   - label: 한계
     text: 작은 실험 데이터에서는 경고의 영향이 드러나지 않았고 장기간 실행했을 때 상태가 얼마나 증가하는지는 측정하지 않았다.
 ---
@@ -89,7 +89,7 @@ Materialized Table API는 경고도 반환한다.
 프로덕션 규모라면 각각 해결해야 한다. 유도된 upsert key와 선언한 primary key가 일치하도록 쿼리나 key를 다시 설계하고, join 상태의 상한을 두도록 state TTL을 추가해야 한다.
 Materialized Table을 변경하면 상태가 삭제되고 다시 구축될 수 있다. upsert mode에서는 새 쿼리가 더 이상 내보내지 않는 오래된 key가 남을 수도 있다.
 
-## 3. 데이터 최신성을 결정하는 설정
+## 3. Freshness를 결정하는 설정
 
 확정된 table option에는 다음 값이 포함된다.
 
@@ -102,7 +102,7 @@ Materialized Table을 변경하면 상태가 삭제되고 다시 구축될 수 �
 ```
 
 flush가 5초이므로 downstream reader도 몇 초 안에 변경을 볼 것으로 예상했다.
-실제 측정에서는 파생 상태가 약 1분 간격으로 Lightning Tables에 나타났다.
+실제 측정에서는 derived state가 약 1분 간격으로 Lightning Tables에 나타났다.
 Confluent의 [delivery guarantees 문서](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html)에 따르면 기본 exactly-once mode에서 Flink는 output transaction을 약 1분에 한 번 커밋한다. Lightning을 포함해 커밋된 데이터만 읽는 reader는 이 커밋을 기다린다.
 [Chapter 6](06-how-fresh-is-real-time.md)에서 각 단계를 측정했다.
 

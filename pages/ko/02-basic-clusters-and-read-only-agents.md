@@ -97,5 +97,5 @@ Terraform은 Standard 클러스터를 선택하면 문서의 읽기 전용 bindi
 
 ## 클러스터를 선택할 때
 
-Lightning Tables 앞에 에이전트를 둘 계획이라면 처리량과 가격뿐 아니라 권한 모델도 클러스터 유형을 결정하는 기준에 포함해야 한다.
+Lightning Tables 앞에 에이전트를 둘 계획이라면 throughput과 가격뿐 아니라 권한 모델도 클러스터 유형을 결정하는 기준에 포함해야 한다.
 Basic에서는 context reader가 클러스터의 관리자 역할을 가져야 한다.
