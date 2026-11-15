@@ -179,3 +179,16 @@ $landing-radius: 10px;
   font-size: 0.95rem;
   color: $landing-muted;
 }
+
+// ---------------------------------------------------------------------------
+// Every page: minima's site title is 26px on a 54px line, so on a phone the
+// series name wraps into two very tall lines. Keep it compact there.
+// ---------------------------------------------------------------------------
+
+@include media-query($on-palm) {
+  .site-title {
+    font-size: 20px;
+    line-height: 1.3;
+    padding: 14px 0;
+  }
+}
