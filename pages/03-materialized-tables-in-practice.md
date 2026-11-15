@@ -6,9 +6,12 @@ part: 3
 reading_time: 6
 sample: 2 CRITICAL warnings
 takeaways:
-  - "The CREATE MATERIALIZED TABLE statement finishes, but its billed continuous query keeps running in a separate materialized-tables API."
-  - "The official River Air query raised two CRITICAL warnings: a key mismatch and unbounded join state."
-  - "A 5-second sink flush did not mean 5-second visibility; committed output reached downstream readers in roughly one-minute steps."
+  - label: "Observed"
+    text: "The official River Air query raised two CRITICAL warnings: a key mismatch and unbounded join state."
+  - label: "Interpretation"
+    text: "A finished CREATE statement still owns a billed continuous query, and a 5-second sink flush does not imply 5-second downstream visibility."
+  - label: "Limitation"
+    text: "The warnings were observed on the quick-start query and small lab data; this run did not quantify long-term state growth."
 ---
 
 A Flink materialized table on Confluent Cloud is a single object that owns a table definition, its backing compacted topic, its schema, and the continuous query that fills it.

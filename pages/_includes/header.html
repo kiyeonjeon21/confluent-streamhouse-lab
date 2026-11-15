@@ -13,9 +13,9 @@
       </span>
     </a>
     <nav class="site-nav" aria-label="Primary navigation">
-      <a href="{{ '/' | relative_url }}">Overview</a>
-      <a href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}">Benchmarks</a>
-      <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}">Verdict</a>
+      <a href="{{ '/' | relative_url }}"{% if page.url == '/' %} aria-current="page"{% endif %}>Overview</a>
+      <a href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}"{% if page.part == 6 %} aria-current="page"{% endif %}>Benchmarks</a>
+      <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}"{% if page.part == 7 %} aria-current="page"{% endif %}>Verdict</a>
       <a href="{{ site.repository_url }}">GitHub</a>
     </nav>
   </div>

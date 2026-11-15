@@ -6,9 +6,12 @@ part: 1
 reading_time: 7
 sample: 6 live capabilities
 takeaways:
-  - "All six capabilities passed: Kafka sources, Flink transforms, materialized state, Lightning reads, Iceberg history, and the rebooking agent."
-  - "The lab replaces console steps with Terraform, one-statement SQL files, and automated verification so it can be destroyed and rebuilt safely."
-  - "The managed layers exchange data through Kafka topics; Flink remains the single definition of derived business state."
+  - label: "Observed"
+    text: "All six capabilities passed: Kafka sources, Flink transforms, materialized state, Lightning reads, Iceberg history, and the rebooking agent."
+  - label: "Interpretation"
+    text: "The managed layers exchange data through Kafka topics; Flink remains the single definition of derived business state."
+  - label: "Limitation"
+    text: "This disposable lab proves the integration path, not production-scale reliability, cost, or operating practice."
 ---
 
 ## What a Streamhouse is

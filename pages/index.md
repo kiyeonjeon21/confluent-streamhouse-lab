@@ -27,6 +27,19 @@ layout: landing
   </aside>
 </section>
 
+<nav class="reader-paths" aria-labelledby="reader-paths-title">
+  <div class="reader-paths__heading">
+    <p class="section-label">Choose a reading path</p>
+    <h2 id="reader-paths-title">Start with the question you need answered</h2>
+  </div>
+  <div class="reader-paths__links">
+    <a href="{{ '/01-the-lab.html' | relative_url }}"><span>Understand the system</span><strong>Architecture and reproducible lab</strong></a>
+    <a href="{{ '/02-basic-clusters-and-read-only-agents.html' | relative_url }}"><span>Plan safe operations</span><strong>Security and runtime constraints</strong></a>
+    <a href="{{ '/06-how-fresh-is-real-time.html' | relative_url }}"><span>Inspect the evidence</span><strong>Freshness, latency, and throughput</strong></a>
+    <a href="{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}"><span>Make a decision</span><strong>Fit, trade-offs, and open questions</strong></a>
+  </div>
+</nav>
+
 <section class="home-section home-section--metrics" aria-labelledby="measured-title">
   <div class="section-heading">
     <div>

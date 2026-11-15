@@ -23,7 +23,14 @@ layout: default
       <h2 id="key-findings-title">Key findings</h2>
       <ul>
         {%- for takeaway in page.takeaways -%}
-        <li>{{ takeaway }}</li>
+        <li>
+          {%- if takeaway.label -%}
+          <span class="takeaway-label">{{ takeaway.label }}</span>
+          <span>{{ takeaway.text }}</span>
+          {%- else -%}
+          <span>{{ takeaway }}</span>
+          {%- endif -%}
+        </li>
         {%- endfor -%}
       </ul>
     </section>

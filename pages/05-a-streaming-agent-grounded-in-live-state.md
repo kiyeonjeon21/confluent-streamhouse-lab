@@ -6,9 +6,12 @@ part: 5
 reading_time: 6
 sample: 2 agent runs
 takeaways:
-  - "The managed Claude model queried live flights and hotels through MCP and returned the expected two offers and hotel for both passengers."
-  - "AI_RUN_AGENT accepts append-only input, so at-risk rows had to be copied out of the upsert materialized table first."
-  - "The model ignored the requested one-line format in both runs, and the Basic-cluster credential behind its read-only tools still held CloudClusterAdmin."
+  - label: "Observed"
+    text: "The managed Claude model queried live flights and hotels through MCP and returned the expected two offers and hotel for both passengers."
+  - label: "Interpretation"
+    text: "AI_RUN_AGENT requires append-only input, so at-risk rows need a bridge out of the upsert materialized table."
+  - label: "Limitation"
+    text: "Only two runs were tested; both missed the requested format, and the Basic-cluster tool credential still held CloudClusterAdmin."
 ---
 
 ## The agent stack

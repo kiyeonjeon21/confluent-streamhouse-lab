@@ -6,9 +6,12 @@ part: 2
 reading_time: 5
 sample: 3 authorization attempts
 takeaways:
-  - "A service account on a Basic cluster could not receive DeveloperRead at topic or cluster scope."
-  - "Kafka READ ACLs were accepted by Kafka but did not authorize any of the three Real-Time Context Engine tools."
-  - "CloudClusterAdmin worked, but it turns a read-only MCP client into an over-privileged credential; Standard is the least-privilege option."
+  - label: "Observed"
+    text: "DeveloperRead failed at topic and cluster scope; Kafka READ ACLs were accepted but authorized none of the three Real-Time Context Engine tools."
+  - label: "Interpretation"
+    text: "CloudClusterAdmin worked, but it turns a read-only MCP client into an over-privileged credential."
+  - label: "Limitation"
+    text: "These attempts establish the Basic-cluster boundary; use a tier that supports resource roles to test least privilege."
 ---
 
 ## The goal

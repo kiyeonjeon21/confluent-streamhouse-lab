@@ -6,9 +6,12 @@ part: 7
 reading_time: 8
 sample: Evidence from all 6 capabilities
 takeaways:
-  - "The Streamhouse held one derived-state definition across applications, Lightning reads, and the agent, while Tableflow preserved history without another export pipeline."
-  - "This setup fits operational decisions that tolerate tens of seconds; it does not fit sub-second read-your-write paths or analytical queries on the serving layer."
-  - "Before production use, measure scan cost at realistic table sizes and use a cluster tier that can give agent credentials least privilege."
+  - label: "Observed"
+    text: "One Flink definition supplied applications, Lightning reads, and the agent, while Tableflow preserved history without another export pipeline."
+  - label: "Interpretation"
+    text: "This setup fits operational decisions that tolerate tens of seconds, not sub-second read-your-write paths or serving-layer analytics."
+  - label: "Limitation"
+    text: "Production evaluation still needs realistic scan-cost tests and a cluster tier that can give agent credentials least privilege."
 ---
 
 The first six parts were about how the pieces behave.

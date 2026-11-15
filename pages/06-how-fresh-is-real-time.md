@@ -6,9 +6,12 @@ part: 6
 reading_time: 11
 sample: 30 freshness samples
 takeaways:
-  - "Derived state became visible in Lightning Tables after 44.3 seconds at p50 and 68.2 seconds at maximum in the stage-timed run."
-  - "Flink wrote output in 2.6 seconds at p50, but the transaction was not committed until 38.5 seconds; Lightning visibility followed at 44.3 seconds."
-  - "Query shape barely changed median latency at 10,000 rows, while throughput reached 40.6 requests per second at 32 concurrent clients with no errors."
+  - label: "Observed"
+    text: "Derived state became visible after 44.3 seconds at p50 and 68.2 seconds at maximum; throughput reached 40.6 req/s at 32 clients with no errors."
+  - label: "Interpretation"
+    text: "Flink wrote output in 2.6 seconds at p50, but commit visibility at 38.5 seconds dominated the end-to-end freshness path."
+  - label: "Limitation"
+    text: "The runs used 10,000 rows and a Seoul client; they do not isolate in-region latency, service-side saturation, or scan scaling."
 ---
 
 According to the [Lightning Tables documentation](https://docs.confluent.io/cloud/current/lightning-tables/overview.html), a table updates within 100 ms of new data arriving in its topic.
@@ -88,6 +91,7 @@ That way each write is observed three times: when Flink writes it, when it's com
 
 <figure class="benchmark-chart benchmark-chart--timeline" aria-labelledby="freshness-chart-title">
   <figcaption id="freshness-chart-title"><strong>Cumulative p50 after the broker acknowledged the source write</strong><span>Scale ends at Lightning visibility, 44.3 seconds. The table above remains the complete result.</span></figcaption>
+  <div class="benchmark-axis" aria-hidden="true"><span></span><div><span>0</span><span>44.3 s</span></div><span></span></div>
   <div class="benchmark-chart__plot" aria-hidden="true">
     <div class="benchmark-row"><span>Flink wrote output</span><div><i class="bar--fresh-write"></i></div><strong>2.6 s</strong></div>
     <div class="benchmark-row"><span>Output committed</span><div><i class="bar--fresh-commit"></i></div><strong>38.5 s</strong></div>
@@ -120,10 +124,11 @@ What it can show is that for this transactional Flink output, 3 to 7 seconds pas
 So E1's "fixed 17 seconds" is the fastest commit, about 11 seconds after the write, plus about 5 seconds in Lightning.
 The two runs also agree on the total: a median of 44.3 seconds here and 46.1 in the first measurement.
 
-On this setup, then, a source change shows up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average, and nearly all of that is the wait for Flink to commit.
-If you need fresher derived state, look at Flink's commit interval first.
+**Observed.** On this setup, a source change showed up in derived Lightning state after 18 to 68 seconds, about 42 seconds on average. At p50, Flink had written the output after 2.6 seconds, but the transaction was not committed until 38.5 seconds.
 
-> **Measured result:** The serving query was not the dominant delay. At p50, Flink had written the output after 2.6 seconds, but the transaction was not committed until 38.5 seconds.
+**Interpretation.** The serving query was not the dominant delay. Nearly all of the wait was for Flink to commit, so the commit interval is the first setting to investigate when derived state is not fresh enough.
+
+**Limitation.** This experiment cannot observe where Confluent marks data as having arrived for the documented 100 ms serving target; it measures the externally visible path from broker acknowledgement to a successful query.
 
 ## Query latency by shape
 
@@ -138,6 +143,7 @@ Three query shapes, 100 rounds each, interleaved over one MCP session:
 <figure class="benchmark-chart benchmark-chart--latency" aria-labelledby="latency-chart-title">
   <figcaption id="latency-chart-title"><strong>Query latency by shape</strong><span>p50 and p95 over 100 interleaved rounds per shape; 900 ms scale.</span></figcaption>
   <div class="benchmark-chart__legend" aria-hidden="true"><span><i class="legend-p50"></i>p50</span><span><i class="legend-p95"></i>p95</span></div>
+  <div class="benchmark-axis" aria-hidden="true"><span></span><div><span>0</span><span>900 ms</span></div><span></span></div>
   <div class="benchmark-chart__plot" aria-hidden="true">
     <div class="benchmark-row benchmark-row--paired"><span>Point lookup</span><div><i class="bar--point-p50"></i><i class="bar--point-p95"></i></div><strong>689 / 788 ms</strong></div>
     <div class="benchmark-row benchmark-row--paired"><span>Equality filter</span><div><i class="bar--equality-p50"></i><i class="bar--equality-p95"></i></div><strong>697 / 817 ms</strong></div>
@@ -158,10 +164,11 @@ SELECT PASSENGER_ID FROM bench_passenger_state
 WHERE CONNECTION_MINUTES BETWEEN 45 AND 90 LIMIT 200
 ```
 
-None of the queries failed.
-The three shapes have the same median, so at 10,000 rows the cost of each call outweighs anything about the query itself.
-Without the 190 ms round trip there's still about 500 ms per call, and this run can't tell how much of that is the MCP layer and how much is the Lightning engine.
-The slowest point lookup was the first call of the run.
+**Observed.** None of the queries failed. All three shapes had a median between 689 and 697 ms, and the slowest point lookup was the first call of the run.
+
+**Interpretation.** At 10,000 rows, the cost of each call outweighed any difference between the three query shapes.
+
+**Limitation.** The 190 ms network round trip leaves about 500 ms unexplained, but this run cannot separate MCP overhead from Lightning engine time.
 
 ### What the queries scanned
 
@@ -172,9 +179,12 @@ After the experiments, the console's Lightning Tables page showed how much data 
 *Confluent Cloud console, 2026-11-15, after E1, E3, and E4.*
 
 My recorded runs sent about 5,830 queries to `bench_passenger_state`: 2,952 E1 polls, 300 E3 queries, and 2,578 E4 lookups.
-Dividing 7.96 GB by 5,830 gives about 1.4 MB per query on a 10,000-row table, and most of those queries were single-row lookups by primary key.
-That fits each query reading most or all of the table instead of going straight to one key.
-I can't confirm it from these numbers, because the page lists the table's size as 0 B and there's nothing to compare against.
+
+**Observed.** Dividing 7.96 GB by 5,830 gives about 1.4 MB per query on a 10,000-row table, and most of those queries were single-row lookups by primary key.
+
+**Interpretation.** That is consistent with each query reading most or all of the table instead of going straight to one key.
+
+**Limitation.** The console lists the table's size as 0 B, so these numbers cannot confirm that interpretation.
 
 If it's true, it affects cost.
 Lightning compute is billed in CCUs, and [one CCU covers up to 80 GB scanned per hour](https://docs.confluent.io/cloud/current/ai/real-time-context-engine/billing.html) (you pay for whichever meter is highest).
@@ -201,6 +211,7 @@ This is a closed loop: N workers, each with its own MCP session, each sending it
 
 <figure class="benchmark-chart benchmark-chart--throughput" aria-labelledby="throughput-chart-title">
   <figcaption id="throughput-chart-title"><strong>Throughput scaled with concurrent clients</strong><span>Closed-loop point lookups, 30 seconds per level; 40.6 req/s scale.</span></figcaption>
+  <div class="benchmark-axis" aria-hidden="true"><span></span><div><span>0</span><span>40.6 req/s</span></div><span></span></div>
   <div class="benchmark-chart__plot" aria-hidden="true">
     <div class="benchmark-row"><span>1 client</span><div><i class="bar--c1"></i></div><strong>1.3 req/s</strong></div>
     <div class="benchmark-row"><span>2 clients</span><div><i class="bar--c2"></i></div><strong>2.9 req/s</strong></div>
@@ -211,10 +222,11 @@ This is a closed loop: N workers, each with its own MCP session, each sending it
   </div>
 </figure>
 
-Throughput grew linearly up to 16 clients and latency stayed flat.
-At 32 it reached 40.6 req/s, short of the roughly 46 that linear scaling would give, and the median went up by about 130 ms.
-No request failed and I saw no rate-limit errors.
-All 32 workers shared one Python process on a laptop, so the slowdown may be on my side; I'd want clients in several processes, or inside the region, before blaming the service.
+**Observed.** Throughput grew linearly through 16 clients. At 32 it reached 40.6 req/s with no failures or rate-limit errors, while median latency rose by about 130 ms.
+
+**Interpretation.** The 32-client result fell short of the roughly 46 req/s implied by linear scaling, which suggests the first sign of a bottleneck.
+
+**Limitation.** All 32 workers shared one Python process on a laptop in Seoul. Clients in several processes or inside the region are needed before attributing the slowdown to the service.
 
 ## What I would do differently
 

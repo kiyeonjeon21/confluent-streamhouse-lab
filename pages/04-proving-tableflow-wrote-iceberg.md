@@ -6,9 +6,12 @@ part: 4
 reading_time: 7
 sample: 6 rows reconciled by offset
 takeaways:
-  - "A successful Flink query did not prove Tableflow worked while the same records still existed in Kafka."
-  - "A direct pyiceberg read found all six source rows at offsets 0 through 5 in the managed Iceberg catalog."
-  - "After Kafka records were deleted, one Flink snapshot query still combined Iceberg-only old rows with Kafka-only new rows."
+  - label: "Observed"
+    text: "A direct pyiceberg read found all six source rows at offsets 0 through 5 in the managed Iceberg catalog."
+  - label: "Interpretation"
+    text: "After Kafka records were deleted, one Flink snapshot query combining Iceberg-only old rows with Kafka-only new rows proved the hybrid path."
+  - label: "Limitation"
+    text: "Six reconciled rows establish correctness for this path, not compaction, retention, or query behavior at analytical scale."
 ---
 
 ## Why the obvious test proves nothing
