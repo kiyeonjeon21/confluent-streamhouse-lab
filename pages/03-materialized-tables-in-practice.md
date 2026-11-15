@@ -56,6 +56,8 @@ materialized tables (continuous queries; billed while RUNNING):
   RUNNING    passenger_state v1
 ```
 
+Stream Lineage, on the other hand, does show them: as Flink nodes between the source topics and their output ([part 1](01-the-lab.md) has the screenshot).
+
 If you monitor or clean up Flink by listing statements, you will miss the one thing that is billed continuously.
 My lab's status command now reads both lists.
 

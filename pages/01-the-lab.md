@@ -36,6 +36,20 @@ flowchart LR
   FH[flight_history] --> ICE[(Iceberg via Tableflow)]
 ```
 
+Here is what the console's Stream Lineage summary showed for the lab's cluster, for the last hour:
+
+[![Stream Lineage summary: producers, a group of four topics, an aggregated pair of Flink nodes looping back into the topics, and consumers](assets/stream-lineage-last-hour.png)](assets/stream-lineage-last-hour.png)
+
+*Confluent Cloud console, 2026-11-15, cluster overview, period "Last hour". Consumer IDs are hidden.*
+
+The summary groups nodes, and the badges count them.
+On the left are the two kinds of writers: `rdkafka`, the benchmark's data generator, and two Flink `INSERT` statements that replayed the RA417 events.
+In the middle are four topics.
+The `…` node is, by its tooltip, two aggregated Flink nodes: the two materialized tables, which read the topics and write their results back into the topic group.
+On the right are the readers, which include Lightning Tables.
+
+Two practical notes: lineage only shows recent traffic, so I replayed a few events before taking this; and the full Stream Lineage page showed only its onboarding screen for this environment, which uses the Essentials governance package.
+
 ## How the lab is built
 
 The quick start is a 30-minute walkthrough in the console.
