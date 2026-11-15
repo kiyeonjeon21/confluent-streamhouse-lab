@@ -52,7 +52,8 @@ The Real-Time Context Engine did not:
   "status": "error",
   "error": {
     "code": "FE_AUTHORIZATION_FAILED",
-    "message": "Not authorized to access resource: Access denied by authorization service"
+    "message": "Not authorized to access resource: Access denied by
+                authorization service"
   }
 }
 ```

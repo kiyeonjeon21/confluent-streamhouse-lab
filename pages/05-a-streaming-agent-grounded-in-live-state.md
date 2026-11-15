@@ -18,14 +18,17 @@ WITH ('provider' = 'confluent', 'task' = 'text_generation',
 
 CREATE TOOL river_air_live_context
 USING CONNECTION `rtce-connection`
-WITH ('type' = 'mcp', 'allowed_tools' = 'getMetadata,queryData', 'request_timeout' = '30');
+WITH ('type' = 'mcp',
+      'allowed_tools' = 'getMetadata,queryData',
+      'request_timeout' = '30');
 
 CREATE AGENT rebooking_agent
 USING MODEL rebooking_model
-USING PROMPT '... offer the first two flights from SFO to the final destination
-that leave at least 45 minutes after arrival, skip CANCELLED flights, add the first
-hotel alphabetically with rooms if an offer leaves 6 or more hours later ...
-Reply with exactly one line: OFFER1=<flight_id>;OFFER2=<flight_id>;HOTEL=<hotel or NONE>'
+USING PROMPT '... offer the first two flights from SFO to the final
+destination that leave at least 45 minutes after arrival, skip CANCELLED
+flights, and add the first hotel alphabetically with rooms if an offer
+leaves 6 or more hours later ... Reply with exactly one line:
+OFFER1=<flight_id>;OFFER2=<flight_id>;HOTEL=<hotel or NONE>'
 USING TOOLS river_air_live_context
 WITH ('max_iterations' = '10');
 ```
@@ -56,12 +59,15 @@ LATERAL TABLE(AI_RUN_AGENT(
 ## The result
 
 ```
-P-001  SUCCESS  The first available hotel alphabetically is **Harbor Point Hotel**.
+P-001  SUCCESS
+  The first available hotel alphabetically is **Harbor Point Hotel**.
 
-                OFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel
-P-002  SUCCESS  The first hotel alphabetically with available rooms is **Harbor Point Hotel**.
+  OFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel
 
-                OFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel
+P-002  SUCCESS
+  The first hotel alphabetically with available rooms is **Harbor Point Hotel**.
+
+  OFFER1=RA226;OFFER2=RA232;HOTEL=Harbor Point Hotel
 ```
 
 This is exactly the quick start's expected answer.

@@ -81,9 +81,22 @@ Three query shapes, 100 rounds each, interleaved over one MCP session:
 
 | shape | rows | p50 | p95 | p99 | max |
 |---|---|---|---|---|---|
-| Point lookup by `PASSENGER_ID` | 1 | 689 ms | 788 ms | 874 ms | 1,360 ms |
-| `RISK = 'AT_RISK' LIMIT 200` | 200 | 697 ms | 817 ms | 1,205 ms | 1,261 ms |
-| `CONNECTION_MINUTES BETWEEN 45 AND 90 LIMIT 200` | 200 | 694 ms | 814 ms | 1,039 ms | 1,222 ms |
+| point lookup | 1 | 689 ms | 788 ms | 874 ms | 1,360 ms |
+| equality filter | 200 | 697 ms | 817 ms | 1,205 ms | 1,261 ms |
+| range filter | 200 | 694 ms | 814 ms | 1,039 ms | 1,222 ms |
+
+The queries, against the 10,000-row `bench_passenger_state`:
+
+```sql
+-- point lookup (a random generated passenger each round)
+SELECT * FROM bench_passenger_state WHERE PASSENGER_ID = 'B-P001234'
+-- equality filter
+SELECT PASSENGER_ID, CONNECTION_MINUTES FROM bench_passenger_state
+WHERE RISK = 'AT_RISK' LIMIT 200
+-- range filter
+SELECT PASSENGER_ID FROM bench_passenger_state
+WHERE CONNECTION_MINUTES BETWEEN 45 AND 90 LIMIT 200
+```
 
 No errors.
 The shapes are indistinguishable at the median, so at 10,000 rows the per-call overhead dominates, not the query.

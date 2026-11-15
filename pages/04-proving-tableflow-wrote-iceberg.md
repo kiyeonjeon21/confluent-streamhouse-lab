@@ -29,7 +29,8 @@ A matching Flink result proves nothing about Iceberg.
 Tableflow exposes an Iceberg REST catalog per environment:
 
 ```
-https://tableflow.<region>.aws.confluent.cloud/iceberg/catalog/organizations/<org>/environments/<env>
+https://tableflow.<region>.aws.confluent.cloud
+  /iceberg/catalog/organizations/<org>/environments/<env>
 ```
 
 It authenticates with OAuth2 client credentials, using a Tableflow API key as `key:secret`, and each cluster's tables sit in a namespace named after the cluster ID.
