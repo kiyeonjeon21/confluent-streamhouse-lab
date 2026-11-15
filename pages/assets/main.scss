@@ -108,7 +108,12 @@ $landing-radius: 10px;
   border-radius: $landing-radius;
   padding: 14px 16px;
   background: #fff;
-  color: $text-color;
+
+  // minima colours every link, visited ones included; only the call to action stays blue.
+  &,
+  &:visited {
+    color: $text-color;
+  }
 
   &:hover {
     text-decoration: none;
