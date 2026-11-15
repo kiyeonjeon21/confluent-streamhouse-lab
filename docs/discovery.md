@@ -113,7 +113,7 @@ From the Lightning Tables, Tableflow, Flink, and RTCE documentation:
 - Each user account can have only two Global API keys.
   The lab avoids spending them by giving the key to a service account.
 - Basic clusters do not support RBAC roles on resources inside the cluster.
-  Whether the context reader's topic-scoped `DeveloperRead` binding is accepted on Basic is an open question, tracked in [capability 6](capabilities/06-agent-mcp.md).
+  Confirmed on 2026-11-15: a read-only context reader is impossible on Basic, and the reader needs `CloudClusterAdmin` (see [capability 4](capabilities/04-lightning-tables.md)).
 
 ## Costs
 

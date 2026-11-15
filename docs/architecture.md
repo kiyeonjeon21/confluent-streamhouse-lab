@@ -70,7 +70,7 @@ flowchart TB
   CK --> TF[Terraform]
   TF --> ENV[Environment river-air-lab]
   TF --> OP[operator service account<br/>EnvironmentAdmin on river-air-lab]
-  TF --> CR[context-reader service account<br/>DeveloperRead on topics and subjects]
+  TF --> CR[context-reader service account<br/>DeveloperRead on topics and subjects;<br/>CloudClusterAdmin on Basic]
   OP --> FK[Flink API key] --> LAB[uv run lab<br/>Flink statements API]
   OP --> TK[Tableflow API key] --> TF
   CR --> GK[Global API key] --> MCP[MCP clients and<br/>the agent's rtce-connection]
@@ -78,7 +78,7 @@ flowchart TB
 
 - The only secret a person handles is the Cloud API key in `.env`.
 - Every other key is created by Terraform for a service account, stored in Terraform state (owner-only, gitignored), and read into memory by `uv run lab` when needed.
-- The agent and MCP clients use the context reader's key, which can read data but cannot change anything.
+- The agent and MCP clients use the context reader's key. On Standard it can only read; on Basic, which rejects read-only roles for service accounts, it holds CloudClusterAdmin on the lab cluster.
 
 ## Where the boundaries are
 

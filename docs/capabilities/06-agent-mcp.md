@@ -65,8 +65,7 @@ Known before running:
 
 - `AI_RUN_AGENT` reads only append-only input.
 - The CLI takes the connection's secret as an argument, so it is briefly visible in the local process table.
-- Open question: on a Basic cluster, is the context reader's topic-scoped `DeveloperRead` binding accepted?
-  If Terraform rejects it, the documented alternative is cluster-scoped `DeveloperRead`, which also grants all three MCP operations.
+- Resolved in capability 4: on a Basic cluster the context reader needs `CloudClusterAdmin` on the cluster; `DeveloperRead` is rejected and ACLs are ignored.
 - Open question: the quick start creates the Global key for the user account. Does a service account's Global key work identically for the Flink connection?
 
 To record after the first run:

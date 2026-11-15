@@ -36,17 +36,38 @@ resource "confluent_service_account" "context_reader" {
   description  = "Read-only access to Lightning Tables over the Real-Time Context Engine for ${var.name}"
 }
 
-# DeveloperRead on topics grants queryData.
-# DeveloperRead on Schema Registry subjects grants listTopics and getMetadata.
-# Source: docs.confluent.io/cloud/current/lightning-tables/access-control.html.
-# Open question for Basic clusters, which do not support in-cluster RBAC roles:
-# whether the topic-scoped binding is accepted. See docs/capabilities/06-agent-mcp.md.
+# Read access for the context reader.
+# Docs: DeveloperRead on topics grants queryData; DeveloperRead on Schema Registry
+# subjects grants listTopics and getMetadata
+# (docs.confluent.io/cloud/current/lightning-tables/access-control.html).
+#
+# Basic clusters cannot give a service account that access (observed 2026-11-15):
+#   - every Kafka resource role is rejected, at topic and at cluster scope alike:
+#     "403 Basic Clusters can not use resource roles";
+#   - a READ ACL on all topics is accepted by Kafka, but the Real-Time Context
+#     Engine ignores it: all three MCP tools return FE_AUTHORIZATION_FAILED.
+# The narrowest role that works on Basic is CloudClusterAdmin on this one cluster.
+# The MCP tools are read-only, but the key itself could administer the cluster,
+# so on Basic the reader is not least-privilege. Standard keeps DeveloperRead.
+
+locals {
+  basic_cluster = var.kafka_cluster_type == "basic"
+}
+
 resource "confluent_role_binding" "context_reader_topics" {
-  count = local.context_enabled ? 1 : 0
+  count = local.context_enabled && !local.basic_cluster ? 1 : 0
 
   principal   = "User:${confluent_service_account.context_reader[0].id}"
   role_name   = "DeveloperRead"
   crn_pattern = "${confluent_kafka_cluster.lab.rbac_crn}/kafka=${confluent_kafka_cluster.lab.id}/topic=*"
+}
+
+resource "confluent_role_binding" "context_reader_cluster_admin" {
+  count = local.context_enabled && local.basic_cluster ? 1 : 0
+
+  principal   = "User:${confluent_service_account.context_reader[0].id}"
+  role_name   = "CloudClusterAdmin"
+  crn_pattern = confluent_kafka_cluster.lab.rbac_crn
 }
 
 resource "confluent_role_binding" "context_reader_subjects" {
@@ -78,5 +99,6 @@ resource "confluent_api_key" "context_reader_global" {
   depends_on = [
     confluent_role_binding.context_reader_topics,
     confluent_role_binding.context_reader_subjects,
+    confluent_role_binding.context_reader_cluster_admin,
   ]
 }

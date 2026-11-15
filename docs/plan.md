@@ -42,7 +42,7 @@ Everything else is idle at no cost.
 
 **approval:** set `lightning_topics` in `terraform/terraform.tfvars` (see the example file) and run `scripts/deploy`.
 
-Creates: Lightning Tables on `passenger_state`, `flight_status`, `hotel_inventory`; service account `river-air-lab-context-reader` with DeveloperRead on topics and schema subjects, and its Global API key.
+Creates: Lightning Tables on `passenger_state`, `flight_status`, `hotel_inventory`; service account `river-air-lab-context-reader` with DeveloperRead on schema subjects and, on Basic, CloudClusterAdmin on the cluster (DeveloperRead on topics on Standard); and its Global API key.
 
 Verify:
 

@@ -46,17 +46,31 @@ scripts/verify-live capability_4
 
 Expected: `listTopics` shows the three topics with their descriptions; `queryData` on `passenger_state` returns `P-001` and `P-002` as `AT_RISK`.
 
-Actual: **not run yet**.
+Actual (2026-11-15, us-east-1, Basic cluster, `uv run lab context ...` and `scripts/verify-live capability_4`): **matches**, after one permission change described below.
+
+```
+listTopics   flight_status, hotel_inventory, passenger_state, all "online", with the configured descriptions
+queryData    SELECT * FROM passenger_state WHERE risk = 'AT_RISK'
+             ['P-001', 'RA417', 'RA210', 'SEA', '2026-11-04 14:50:00', '-50', 'AT_RISK']
+             ['P-002', 'RA417', 'RA214', 'SEA', '2026-11-04 14:50:00', '40', 'AT_RISK']
+queryData    SELECT FLIGHT_ID, STATUS, ESTIMATED_TIME FROM flight_status
+             five rows, one per flight, RA417 DELAYED
+```
 
 ## Issues, limitations, and lessons learned
 
-Known before running:
+Observed on the first run:
 
-- AWS only; value schema required; upsert needs a compacted, keyed topic; no key schema changes.
-- At most 200 rows per query; no OFFSET, COUNT, or GROUP BY; 20 s timeout; rate limited.
-- The upstream repository saw a frozen duplicate row per key on `flight_status` after enabling (2026-10-28 run); check for it here.
-
-To record after the first run:
-
-- Whether the direct API and `confluent lightning query` work without Early Access enrollment.
-- Time from enabling to Active.
+- **On a Basic cluster, the read-only context reader is impossible.**
+  Terraform's `DeveloperRead` binding failed at topic scope and at cluster scope with `403 Forbidden - Basic Clusters can not use resource roles`.
+  A Kafka `READ` ACL on all topics was accepted by Kafka, but the Real-Time Context Engine ignored it: `listTopics`, `getMetadata`, and `queryData` all returned `FE_AUTHORIZATION_FAILED` ("Access denied by authorization service"), still after more than 10 minutes.
+  `CloudClusterAdmin` on the lab cluster works immediately; it is what [`terraform/lightning.tf`](../../terraform/lightning.tf) now grants on Basic, and it means a leaked reader key could administer this cluster.
+  On Standard the configuration keeps the documented `DeveloperRead` bindings.
+- Enabling three Lightning Tables took 2 min 9 s in Terraform (`confluent_rtce_topic`), and all three were `online` when first queried.
+- `getMetadata` reports column names upper-cased (`PASSENGER_ID`) and timestamps as `TIMESTAMP(6)`, while Flink declares `TIMESTAMP(3)`. Lightning SQL accepted lower-case names in `WHERE risk = 'AT_RISK'`.
+- No duplicate rows per key appeared on `flight_status`, unlike the upstream report, although RA417 had been written five times before enabling.
+- `confluent lightning query` (user login) worked without any Early Access enrollment and printed the same two rows in 2.5 s wall clock.
+- A single MCP `queryData` took 0.7 to 1.0 s from a client in Korea to `us-east-1`; that includes the trans-Pacific round trip and is an anecdote, not a measurement.
+- **Propagation into Lightning is far slower than Lightning's own 100 ms ingest.**
+  Replaying an event and polling `queryData` once per second (2026-11-15, n = 2): the event's `INSERT` statement took 10.3 to 10.4 s to complete, and `passenger_state` in Lightning changed 34.6 s and 51.4 s after that.
+  Both values fall inside a one-minute window, which matches a Flink commit interval of about one minute (Lightning reads committed records) rather than the 5 s sink flush. Phase 4 experiment E1 measures this properly.
