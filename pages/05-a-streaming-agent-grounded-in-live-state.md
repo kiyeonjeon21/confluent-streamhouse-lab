@@ -47,9 +47,9 @@ The connection holds the MCP endpoint and the context reader's Global API key.
 Terraform can't create this kind of connection yet, so the lab uses `confluent flink connection create`.
 
 ```mermaid
+sequenceDiagram
 accTitle: Streaming agent and MCP interaction
 accDescr: A Flink snapshot query invokes the rebooking agent. The managed model calls a constrained MCP tool, which queries live flight and hotel state in Lightning Tables.
-sequenceDiagram
   participant Q as AI_RUN_AGENT
   participant A as Rebooking agent
   participant M as Managed model

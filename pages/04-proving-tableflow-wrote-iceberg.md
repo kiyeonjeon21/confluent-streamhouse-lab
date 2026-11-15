@@ -114,9 +114,9 @@ At each step a script checked a Kafka consumer reading from the start of the top
 | New batch written | NEW-1, NEW-2 | OLD-1..4 | OLD-1..4, NEW-1, NEW-2 |
 
 ```mermaid
+flowchart LR
 accTitle: Tableflow hybrid-read proof
 accDescr: Old rows move from Kafka to Iceberg and are deleted from Kafka. New rows remain only in Kafka. A Flink snapshot query reads both stores and returns all six rows.
-flowchart LR
   OLD[Old rows<br/>OLD-1..4] --> K1[(Kafka)]
   K1 --> TF[Tableflow]
   TF --> ICE[(Iceberg<br/>OLD-1..4)]

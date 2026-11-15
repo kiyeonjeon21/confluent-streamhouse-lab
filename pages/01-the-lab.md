@@ -28,9 +28,9 @@ Flight RA417 from Chicago is late into San Francisco.
 The system has to work out which connecting passengers are now at risk, have an AI agent offer each of them two new flights and a hotel if they need one, and answer questions about past delays.
 
 ```mermaid
+flowchart LR
 accTitle: River Air Streamhouse architecture
 accDescr: Flight and passenger topics feed a Flink materialized table. Lightning Tables serve current state to an MCP agent, while Tableflow writes flight history to Iceberg.
-flowchart LR
   FS[flight_status] --> PS[[passenger_state<br/>materialized table]]
   PI[passenger_itineraries] --> PS
   PS --> LT[(Lightning Tables)]
