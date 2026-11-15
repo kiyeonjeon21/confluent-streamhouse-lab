@@ -3,6 +3,7 @@ en:
   overview: Overview
   benchmarks: Benchmarks
   conclusion: Conclusion
+  language: Language
   series: Streamhouse field notes
   chapter: Chapter
   of: of
@@ -19,6 +20,7 @@ ko:
   overview: 개요
   benchmarks: 벤치마크
   conclusion: 결론
+  language: 언어
   series: Streamhouse 실험 기록
   chapter: 챕터
   of: /

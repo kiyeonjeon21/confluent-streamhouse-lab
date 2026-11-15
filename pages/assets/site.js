@@ -1,20 +1,26 @@
 const articleBody = document.querySelector(".article-body");
 const tocLinks = [...document.querySelectorAll(".article-toc a[href^='#']")];
-const languageToggle = document.querySelector(".language-toggle");
+const languageLink = document.querySelector(".language-switch a[hreflang]");
 
-if (languageToggle) {
+// Remembers the language a reader picked and sends them to it on later visits.
+// Storage can be unavailable (private mode, blocked site data); the switch still works.
+if (languageLink) {
+  const storageKey = "streamhouse-language";
   const currentLanguage = document.documentElement.lang || "en";
-  const preferredLanguage = localStorage.getItem("streamhouse-language");
+  let preferredLanguage = null;
 
-  languageToggle.addEventListener("click", () => {
-    localStorage.setItem(
-      "streamhouse-language",
-      currentLanguage === "ko" ? "en" : "ko"
-    );
+  try {
+    preferredLanguage = localStorage.getItem(storageKey);
+  } catch {}
+
+  languageLink.addEventListener("click", () => {
+    try {
+      localStorage.setItem(storageKey, languageLink.hreflang);
+    } catch {}
   });
 
-  if (preferredLanguage && preferredLanguage !== currentLanguage) {
-    window.location.replace(languageToggle.href);
+  if (preferredLanguage === languageLink.hreflang && preferredLanguage !== currentLanguage) {
+    window.location.replace(languageLink.href);
   }
 }
 

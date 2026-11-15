@@ -1,6 +1,8 @@
 {%- comment -%}
   Replaces minima 2.5.1's header and its hamburger page list with a short,
-  fixed navigation. Links marked site-nav__optional are hidden on phones.
+  fixed navigation and an EN/KO switch. The switch names both languages in
+  Latin letters and marks the current one, so an English page never shows a
+  lone Korean label. On phones the navigation moves to its own row.
 {%- endcomment -%}
 {%- assign locale = page.lang | default: site.lang | default: 'en' -%}
 {%- assign ui = site.data.ui[locale] -%}
@@ -15,13 +17,30 @@
       </span>
     </a>
     <nav class="site-nav" aria-label="{% if locale == 'ko' %}주요 메뉴{% else %}Primary navigation{% endif %}">
-      <a class="site-nav__optional" href="{% if locale == 'ko' %}{{ '/ko/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}"{% if page.part == nil %} aria-current="page"{% endif %}>{{ ui.overview }}</a>
+      <a href="{% if locale == 'ko' %}{{ '/ko/' | relative_url }}{% else %}{{ '/' | relative_url }}{% endif %}"{% if page.part == nil %} aria-current="page"{% endif %}>{{ ui.overview }}</a>
       <a href="{% if locale == 'ko' %}{{ '/ko/06-how-fresh-is-real-time.html' | relative_url }}{% else %}{{ '/06-how-fresh-is-real-time.html' | relative_url }}{% endif %}"{% if page.part == 6 %} aria-current="page"{% endif %}>{{ ui.benchmarks }}</a>
       <a href="{% if locale == 'ko' %}{{ '/ko/07-is-a-streamhouse-worth-it.html' | relative_url }}{% else %}{{ '/07-is-a-streamhouse-worth-it.html' | relative_url }}{% endif %}"{% if page.part == 7 %} aria-current="page"{% endif %}>{{ ui.conclusion }}</a>
       {%- if site.repository_public %}
-      <a class="site-nav__optional" href="{{ site.repository_url }}">GitHub</a>
+      <a href="{{ site.repository_url }}">GitHub</a>
       {%- endif %}
-      <a class="language-toggle" href="{{ page.alternate_url | relative_url }}" lang="{% if locale == 'ko' %}en{% else %}ko{% endif %}" hreflang="{% if locale == 'ko' %}en{% else %}ko{% endif %}">{% if locale == 'ko' %}EN{% else %}한국어{% endif %}</a>
     </nav>
+    {%- if page.alternate_url %}
+    {%- if locale == 'ko' -%}
+      {%- assign en_url = page.alternate_url -%}
+      {%- assign ko_url = page.url -%}
+    {%- else -%}
+      {%- assign en_url = page.url -%}
+      {%- assign ko_url = page.alternate_url -%}
+    {%- endif %}
+    <div class="language-switch" role="group" aria-label="{{ ui.language }}">
+      {%- if locale == 'en' %}
+      <span class="language-switch__option" aria-current="true" aria-label="English" lang="en">EN</span>
+      <a class="language-switch__option" href="{{ ko_url | relative_url }}" hreflang="ko" lang="ko" aria-label="한국어" title="한국어로 읽기">KO</a>
+      {%- else %}
+      <a class="language-switch__option" href="{{ en_url | relative_url }}" hreflang="en" lang="en" aria-label="English" title="Read in English">EN</a>
+      <span class="language-switch__option" aria-current="true" aria-label="한국어" lang="ko">KO</span>
+      {%- endif %}
+    </div>
+    {%- endif %}
   </div>
 </header>
