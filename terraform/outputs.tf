@@ -90,3 +90,31 @@ output "operator_tableflow_api_secret" {
   value     = one(confluent_api_key.operator_tableflow[*].secret)
   sensitive = true
 }
+
+output "kafka_bootstrap" {
+  value = confluent_kafka_cluster.lab.bootstrap_endpoint
+}
+
+output "schema_registry_endpoint" {
+  value = data.confluent_schema_registry_cluster.lab.rest_endpoint
+}
+
+output "operator_kafka_api_key" {
+  value     = one(confluent_api_key.operator_kafka[*].id)
+  sensitive = true
+}
+
+output "operator_kafka_api_secret" {
+  value     = one(confluent_api_key.operator_kafka[*].secret)
+  sensitive = true
+}
+
+output "operator_schema_registry_api_key" {
+  value     = one(confluent_api_key.operator_schema_registry[*].id)
+  sensitive = true
+}
+
+output "operator_schema_registry_api_secret" {
+  value     = one(confluent_api_key.operator_schema_registry[*].secret)
+  sensitive = true
+}

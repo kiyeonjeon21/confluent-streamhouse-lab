@@ -10,3 +10,6 @@
 
 # Capability 5: keep history as an Iceberg table.
 # tableflow_topics = ["flight_history"]
+
+# Phase 4: Kafka and Schema Registry keys for the data generator.
+# enable_bench_clients = true

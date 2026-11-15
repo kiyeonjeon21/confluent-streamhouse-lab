@@ -76,11 +76,46 @@ Question: what does it take to run this, and what does it cost?
 
 Method: a log kept during the lab of every manual step, every surprise, and every console-only operation; the count of Terraform resources and CLI-only steps; and the billing page broken down by product for the lab's lifetime.
 
-## Tooling to build before E1
+## Tooling
 
-- A seeded data generator for `flight_status` and `passenger_itineraries` (Kafka producer with Schema Registry), so datasets are reproducible.
-  The generator needs a Kafka API key and ACLs for a producer service account, which the platform does not create yet.
-- A measurement harness that writes JSON lines with monotonic timestamps and the client's network timings.
-- A summary script that turns the JSON lines into percentile tables.
+Built and unit tested on 2026-11-15 ([`tests/unit/test_bench.py`](../../tests/unit/test_bench.py)); not yet run against the cloud.
 
-Each of these is added, reviewed, and unit tested before any experiment that uses it is approved.
+| Piece | Where | What it guarantees |
+|---|---|---|
+| Isolated pipeline | [`sql/07-bench`](../../sql/07-bench/) | `bench_flight_status`, `bench_passenger_itineraries`, and `bench_passenger_state`, so load never touches the quick start data that capabilities 1 to 6 and the agent read. A unit test keeps the bench materialized table's query identical to `passenger_state` apart from table names. |
+| Data generator | [`datagen.py`](../../src/streamhouse_lab/datagen.py) | Same seed and size, same dataset. About 21% of passengers are `AT_RISK`; `expected_risk()` predicts the exact counts the materialized table must converge to. IDs start with `B-`, never colliding with the quick start's `RA` flights. |
+| Producer | [`kafka_io.py`](../../src/streamhouse_lab/kafka_io.py) | Serializes with the schema Flink registered (latest version, never auto-registers), `acks=all`, idempotent, and records the broker acknowledgement time on the monotonic clock. |
+| Recorder | [`measure.py`](../../src/streamhouse_lab/measure.py) | One JSON-lines file per run under `results/` (gitignored), with a header holding parameters, region, client location, and git revision. |
+| Network probe | [`measure.py`](../../src/streamhouse_lab/measure.py) | DNS, TCP connect, and TLS handshake to the MCP host, recorded before and after every run. |
+| Runners | [`bench.py`](../../src/streamhouse_lab/bench.py) | E1, E3, E4 as specified above. E1 records both visibility bounds per sample. |
+| Summaries | [`summarize.py`](../../src/streamhouse_lab/summarize.py) | Nearest-rank percentiles, so every reported number was actually observed; errors counted separately. |
+
+Commands:
+
+```sh
+uv run lab bench gen --dry-run --passengers 10000 --seed 7        # shape only, writes nothing
+uv run lab bench gen --passengers 10000 --seed 7                  # produce the dataset
+uv run lab check bench                                            # risk counts in Flink
+uv run lab bench e1 --samples 30 --location seoul-laptop
+uv run lab bench e3 --repeat 100 --passengers 10000 --location seoul-laptop
+uv run lab bench e4 --levels 1,2,4,8,16,32 --duration 30 --location seoul-laptop
+uv run lab bench summarize results/e3/<run-id>.jsonl --metric latency_ms
+```
+
+## Running an experiment: approvals
+
+Each step below changes cloud state or bills, so each needs explicit approval.
+
+1. Set `enable_bench_clients = true` and add `bench_passenger_state` to `lightning_topics` in `terraform.tfvars`, then `scripts/deploy`.
+   Adds the operator's Kafka and Schema Registry keys and one Lightning Table.
+   The Lightning Table needs the topic to exist, so on a fresh deploy apply step 2 first and add the topic afterwards.
+2. `uv run lab apply bench`: two tables and a second materialized table, billed at least 1 CFU while it runs.
+3. `uv run lab bench gen`: writes the dataset (about 1 MB for 10,000 passengers).
+4. The experiment itself.
+5. Afterwards, `scripts/cleanup`, or remove the bench Lightning Table and stop the bench materialized table.
+
+## Known caveat for the first runs
+
+The client runs in Korea and the lab in `us-east-1`, so every request crosses the Pacific.
+The network probe records the round trip so each latency can be read against it.
+A client inside `us-east-1` (for example a small EC2 instance or CloudShell) would remove it, at extra cost; it is not part of the current plan.

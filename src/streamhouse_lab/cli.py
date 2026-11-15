@@ -167,6 +167,71 @@ def cmd_iceberg(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bench(args: argparse.Namespace) -> int:
+    """Phase 4 tooling. Everything except --dry-run and summarize writes to or reads from the cloud."""
+    import asyncio
+    import urllib.parse
+
+    from streamhouse_lab import bench, datagen, measure, summarize
+
+    if args.action == "summarize":
+        header, summaries = summarize.summarize_file(Path(args.file), args.metric)
+        print(f"run {Path(args.file).stem}: {header['experiment']} {header['params']}")
+        print(f"region {header['region']}, client {header['client_location']}, revision {header['revision']}")
+        print(summarize.to_markdown(summaries))
+        return 0
+
+    dataset = datagen.generate(args.passengers, args.seed)
+    if args.action == "gen" and args.dry_run:
+        print(f"{len(dataset.flights)} flights, {len(dataset.itineraries)} passengers (seed {args.seed})")
+        print(f"expected risk: {datagen.expected_risk(dataset)}")
+        return 0
+
+    cfg = config.load()
+    if args.action == "gen":
+        from streamhouse_lab.kafka_io import BenchProducer
+
+        acks = BenchProducer.connect(cfg).send(dataset.records())
+        print(f"produced {len(acks)} records; expected risk {datagen.expected_risk(dataset)}")
+        return 0
+
+    engine = ContextEngine(cfg)
+    host = urllib.parse.urlsplit(cfg.context_mcp_endpoint).hostname or ""
+    params = {k: v for k, v in vars(args).items() if k not in ("func", "command", "action")}
+    with measure.Recorder(
+        args.action, params, region=cfg.cloud_region, client_location=args.location
+    ) as recorder:
+        recorder.event("net", phase="before", host=host, **measure.probe_network(host))
+
+        async def run() -> None:
+            if args.action == "e1":
+                from streamhouse_lab.kafka_io import BenchProducer
+
+                producer = BenchProducer.connect(cfg)
+                async with engine.session() as session:
+                    await bench.run_freshness(
+                        session, producer, recorder, datagen.probe_flight(dataset),
+                        samples=args.samples, poll_interval=args.poll, gap=args.gap,
+                    )  # fmt: skip
+            elif args.action == "e3":
+                async with engine.session() as session:
+                    plan = bench.query_shapes(args.passengers, args.seed, args.repeat)
+                    await bench.run_query_latency(session, recorder, plan)
+            elif args.action == "e4":
+                levels = [int(x) for x in args.levels.split(",")]
+                await bench.run_concurrency(
+                    engine.session, recorder, levels=levels, duration=args.duration,
+                    passengers=args.passengers, seed=args.seed,
+                )  # fmt: skip
+
+        asyncio.run(run())
+        recorder.event("net", phase="after", host=host, **measure.probe_network(host))
+    print(f"raw results: {recorder.path.relative_to(config.REPO_ROOT)}")
+    metric = "seen_by_ms" if args.action == "e1" else "latency_ms"
+    print(summarize.to_markdown(summarize.summarize_file(recorder.path, metric)[1]))
+    return 0
+
+
 def cmd_agent_connection(args: argparse.Namespace) -> int:
     cfg = config.load()
     if args.action == "create":
@@ -221,6 +286,22 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("iceberg", help="read a Tableflow table directly from Iceberg (no Flink)")
     p.add_argument("table")
     p.set_defaults(func=cmd_iceberg)
+
+    p = sub.add_parser("bench", help="Phase 4: generate data, run experiments, summarize results")
+    p.add_argument("action", choices=["gen", "e1", "e3", "e4", "summarize"])
+    p.add_argument("file", nargs="?", help="results file for summarize")
+    p.add_argument("--passengers", type=int, default=10_000)
+    p.add_argument("--seed", type=int, default=7)
+    p.add_argument("--dry-run", action="store_true", help="gen: print the dataset shape, write nothing")
+    p.add_argument("--location", default="unspecified", help="where the client runs, e.g. seoul-laptop")
+    p.add_argument("--samples", type=int, default=30, help="e1: freshness samples")
+    p.add_argument("--poll", type=float, default=0.25, help="e1: seconds between polls")
+    p.add_argument("--gap", type=float, default=5.0, help="e1: seconds between samples")
+    p.add_argument("--repeat", type=int, default=100, help="e3: rounds of every query shape")
+    p.add_argument("--levels", default="1,2,4,8,16,32", help="e4: concurrency levels")
+    p.add_argument("--duration", type=float, default=30.0, help="e4: seconds per level")
+    p.add_argument("--metric", default="latency_ms", help="summarize: field to summarize")
+    p.set_defaults(func=cmd_bench)
 
     p = sub.add_parser("agent-connection", help="manage the agent's MCP connection to the context engine")
     p.add_argument("action", choices=["create", "show", "delete"])

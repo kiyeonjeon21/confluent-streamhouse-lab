@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -60,6 +62,40 @@ def decode_content(result: Any) -> tuple[bool, Any]:
     return is_error, payload
 
 
+class Session:
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    async def tool_names(self) -> list[str]:
+        tools = await self._client.list_tools()
+        return [tool.name for tool in tools.tools]
+
+    async def call(self, tool: str, arguments: dict[str, Any]) -> ToolCall:
+        start = time.perf_counter()
+        raw = await self._client.call_tool(tool, arguments)
+        elapsed = (time.perf_counter() - start) * 1000
+        is_error, payload = decode_content(raw)
+        return ToolCall(tool, arguments, is_error, payload, elapsed)
+
+    async def query(self, topic: str, sql: str, max_result_rows: int = 50) -> ToolCall:
+        return await self.call("queryData", query_arguments(topic, sql, max_result_rows))
+
+
+def result_rows(payload: Any) -> list[list]:
+    """Rows from a successful queryData payload: {"status", "rows": {"schema", "data": [{"row": [...]}]}}.
+
+    Shape observed on 2026-11-15."""
+    if not isinstance(payload, dict) or payload.get("status") != "success":
+        return []
+    return [item["row"] for item in (payload.get("rows") or {}).get("data") or []]
+
+
+def error_code(payload: Any) -> str | None:
+    if isinstance(payload, dict) and payload.get("status") == "error":
+        return (payload.get("error") or {}).get("code") or "UNKNOWN"
+    return None
+
+
 class ContextEngine:
     """Opens one MCP session per `with` block. Use `run()` from synchronous code."""
 
@@ -72,17 +108,16 @@ class ContextEngine:
         http_client = create_mcp_http_client(headers={"Authorization": f"Basic {token}"})
         return streamable_http_client(self.endpoint, http_client=http_client)
 
-    async def _session(self, calls: list[tuple[str, dict[str, Any]]]) -> tuple[list[str], list[ToolCall]]:
+    @asynccontextmanager
+    async def session(self) -> AsyncIterator[Session]:
+        """One MCP session, kept open for repeated calls (initialisation is not timed per call)."""
         async with Client(self._transport()) as client:
-            tools = await client.list_tools()
-            names = [tool.name for tool in tools.tools]
-            results = []
-            for tool, arguments in calls:
-                start = time.perf_counter()
-                raw = await client.call_tool(tool, arguments)
-                elapsed = (time.perf_counter() - start) * 1000
-                is_error, payload = decode_content(raw)
-                results.append(ToolCall(tool, arguments, is_error, payload, elapsed))
+            yield Session(client)
+
+    async def _session(self, calls: list[tuple[str, dict[str, Any]]]) -> tuple[list[str], list[ToolCall]]:
+        async with self.session() as session:
+            names = await session.tool_names()
+            results = [await session.call(tool, arguments) for tool, arguments in calls]
             return names, results
 
     def run(self, calls: list[tuple[str, dict[str, Any]]]) -> tuple[list[str], list[ToolCall]]:

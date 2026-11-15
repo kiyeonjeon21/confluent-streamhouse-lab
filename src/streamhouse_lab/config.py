@@ -45,6 +45,10 @@ class LabConfig:
     tableflow_topics: tuple[str, ...]
     tableflow_catalog_endpoint: str | None = None
     operator_tableflow: ApiKey | None = None
+    kafka_bootstrap: str | None = None
+    operator_kafka: ApiKey | None = None
+    schema_registry_endpoint: str | None = None
+    operator_schema_registry: ApiKey | None = None
 
     @property
     def cloud(self) -> str:
@@ -86,10 +90,10 @@ def load(read_outputs: OutputReader = terraform_outputs) -> LabConfig:
             return None
         return entry["value"]
 
-    context_key = value("context_reader_api_key", required=False)
-    context_secret = value("context_reader_api_secret", required=False)
-    tableflow_key = value("operator_tableflow_api_key", required=False)
-    tableflow_secret = value("operator_tableflow_api_secret", required=False)
+    def optional_key(prefix: str) -> ApiKey | None:
+        key = value(f"{prefix}_api_key", required=False)
+        secret = value(f"{prefix}_api_secret", required=False)
+        return ApiKey(key, Secret(secret)) if key and secret else None
 
     return LabConfig(
         organization_id=value("organization_id"),
@@ -104,13 +108,13 @@ def load(read_outputs: OutputReader = terraform_outputs) -> LabConfig:
         operator_id=value("operator_id"),
         operator_flink=ApiKey(value("operator_flink_api_key"), Secret(value("operator_flink_api_secret"))),
         context_mcp_endpoint=value("context_mcp_endpoint"),
-        context_reader=(
-            ApiKey(context_key, Secret(context_secret)) if context_key and context_secret else None
-        ),
+        context_reader=optional_key("context_reader"),
         lightning_topics=tuple(value("lightning_topics", required=False) or ()),
         tableflow_topics=tuple(value("tableflow_topics", required=False) or ()),
         tableflow_catalog_endpoint=value("tableflow_catalog_endpoint", required=False),
-        operator_tableflow=(
-            ApiKey(tableflow_key, Secret(tableflow_secret)) if tableflow_key and tableflow_secret else None
-        ),
+        operator_tableflow=optional_key("operator_tableflow"),
+        kafka_bootstrap=value("kafka_bootstrap", required=False),
+        operator_kafka=optional_key("operator_kafka"),
+        schema_registry_endpoint=value("schema_registry_endpoint", required=False),
+        operator_schema_registry=optional_key("operator_schema_registry"),
     )

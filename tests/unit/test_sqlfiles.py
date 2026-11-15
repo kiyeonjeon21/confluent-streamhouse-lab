@@ -20,6 +20,7 @@ def test_expected_stages_exist() -> None:
         "passenger-state",
         "history",
         "agent",
+        "bench",
     ]
 
 

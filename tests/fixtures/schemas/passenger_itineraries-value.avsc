@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "passenger_itineraries_value",
+  "namespace": "org.apache.flink.avro.generated.record",
+  "fields": [
+    {
+      "name": "inbound_flight_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "connecting_flight_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

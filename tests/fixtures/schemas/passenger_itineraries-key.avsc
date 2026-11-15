@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "passenger_itineraries_key",
+  "namespace": "org.apache.flink.avro.generated.record",
+  "fields": [
+    {
+      "name": "passenger_id",
+      "type": "string"
+    }
+  ]
+}

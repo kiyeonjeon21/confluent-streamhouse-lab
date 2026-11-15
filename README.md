@@ -23,7 +23,7 @@ What was verified before building, including limits and prices: [docs/discovery.
 
 - Phase 1 (discovery) and Phase 2 (repository) are done.
 - Phase 3 is done: all six capabilities passed on 2026-11-15 in us-east-1 on a Basic cluster; the full live suite runs in about 3 minutes.
-- Phase 4 (evaluation) is designed in [docs/experiments](docs/experiments/README.md) and not started.
+- Phase 4 (evaluation): methodology and tooling are ready in [docs/experiments](docs/experiments/README.md); no experiment has run yet.
 - [docs/plan.md](docs/plan.md) lists each billable step and what it creates.
 - Capability results are recorded in [docs/capabilities](docs/capabilities/README.md) as they are run.
 

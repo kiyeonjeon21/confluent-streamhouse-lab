@@ -63,3 +63,9 @@ variable "tableflow_topics" {
   type        = set(string)
   default     = []
 }
+
+variable "enable_bench_clients" {
+  description = "Create the operator's Kafka and Schema Registry API keys that the Phase 4 data generator produces with. Off until an experiment is approved."
+  type        = bool
+  default     = false
+}

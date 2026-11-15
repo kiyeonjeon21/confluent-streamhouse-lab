@@ -5,6 +5,7 @@ description = "Hands-on lab for the Confluent Cloud Streamhouse: Kafka, Flink SQ
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "confluent-kafka[avro,schemaregistry]>=2.16.1",
     "httpx>=0.28.1",
     "mcp>=2.3.0",
     "pyiceberg[pyarrow,s3fs]>=0.12.0",
