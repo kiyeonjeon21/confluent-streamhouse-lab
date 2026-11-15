@@ -35,6 +35,10 @@ A Flink agent on a managed Claude model, reading Lightning Tables over MCP.
 
 Freshness, query latency, and concurrency, plus the benchmark bug that made the first run look twice as slow.
 
+### 7. [Is a Streamhouse worth it?](07-is-a-streamhouse-worth-it.md)
+
+The promises against the evidence, the alternatives, where it fits, and where it does not.
+
 ## At a glance
 
 | Capability | Result |

@@ -152,5 +152,4 @@ All 32 workers shared one Python process on a laptop, so the knee may be the cli
   Randomized spacing is a one-line fix once you know to look for it.
 - **Record bounds, not points.** Reporting both "not visible before" and "visible by" made the measurement resolution explicit and the phase-locking obvious.
 
-That concludes the series.
-Back to the [overview](index.md).
+Next: [Is a Streamhouse worth it?](07-is-a-streamhouse-worth-it.md).
